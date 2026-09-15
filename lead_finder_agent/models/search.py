@@ -8,6 +8,32 @@ from typing import Any, Dict, List, Optional
 from lead_finder_agent.models.enums import ProviderKind
 
 
+def _location_resolver():
+    """The shared :class:`LocationResolver`, or ``None`` when unavailable.
+
+    Deferred to call time so importing the models package never triggers a
+    config-file read, and cached inside the config module.
+    """
+    try:
+        from lead_finder_agent.config.locations import get_location_resolver
+
+        return get_location_resolver()
+    except Exception:  # noqa: BLE001 - resolution is an enhancement, never a blocker
+        return None
+
+
+def reset_location_resolver() -> None:
+    """Drop the cached resolver (used when configuration changes in tests)."""
+    try:
+        from lead_finder_agent.config.locations import (
+            reset_location_resolver as _reset,
+        )
+
+        _reset()
+    except Exception:  # noqa: BLE001 - nothing cached when config is unimportable
+        pass
+
+
 @dataclass
 class SearchQuery:
     """Input to the search stage."""
@@ -28,6 +54,22 @@ class SearchQuery:
         self.keywords = [k.strip() for k in (self.keywords or []) if k and k.strip()]
         if self.business_type:
             self.business_type = self.business_type.strip()
+        self._normalize_location()
+
+    def _normalize_location(self) -> None:
+        """Fold ``عدن``/``مدينة عدن``/``Aden`` onto one canonical spelling."""
+        resolver = _location_resolver()
+        if resolver is None:  # pragma: no cover - defensive
+            return
+
+        canonical_city, inferred_country = resolver.resolve_city(self.city)
+        if canonical_city:
+            self.city = canonical_city
+        if self.country:
+            self.country = resolver.resolve_country(self.country)
+        elif inferred_country:
+            # Only fill in a country the user left blank; never override input.
+            self.country = inferred_country
 
     @property
     def location(self) -> str:
@@ -108,4 +150,4 @@ class SearchResult:
         }
 
 
-__all__ = ["SearchQuery", "ProviderResponse", "SearchResult"]
+__all__ = ["SearchQuery", "ProviderResponse", "SearchResult", "reset_location_resolver"]

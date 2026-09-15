@@ -18,9 +18,10 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from lead_finder_agent.models import ProviderKind, SearchQuery
 from lead_finder_agent.search.base import BaseSearchProvider
-from lead_finder_agent.search.business_types import BusinessTypeResolver
+from lead_finder_agent.search.business_types import BusinessTypeResolver, categories_match
 from lead_finder_agent.search.registry import register_provider
 from lead_finder_agent.utils.logging_utils import get_logger
+from lead_finder_agent.utils.text import normalize_whitespace
 
 log = get_logger("search.providers.sample")
 
@@ -317,6 +318,9 @@ class SampleProvider(BaseSearchProvider):
         return matched[: query.limit]
 
     def _matches(self, record: Dict[str, Any], query: SearchQuery) -> bool:
+        if not self._matches_country(record, query):
+            return False
+
         needle = " ".join(
             filter(None, [query.business_type or ""] + list(query.keywords or []))
         ).strip().lower()
@@ -327,7 +331,7 @@ class SampleProvider(BaseSearchProvider):
         # "clothing shops" both map to the `clothing` category.
         category = self.resolver.category_for(needle)
         record_type = str(record.get("business_type") or "").lower()
-        if category and record_type == category:
+        if category and categories_match(category, record_type):
             return True
 
         haystack = " ".join(
@@ -338,6 +342,22 @@ class SampleProvider(BaseSearchProvider):
         # Every token must appear somewhere; a trailing "s" is ignored so
         # "restaurants" still matches a record typed as "restaurant".
         return all(self._token_in(token, haystack) for token in needle.split())
+
+    @staticmethod
+    def _matches_country(record: Dict[str, Any], query: SearchQuery) -> bool:
+        """Filter by country when the caller supplied one.
+
+        The sample records are grouped by city and every city here sits in one
+        country, so an explicit ``--country`` that disagrees with the record must
+        exclude it rather than silently returning it.
+        """
+        requested = normalize_whitespace(query.country)
+        if not requested:
+            return True
+        actual = normalize_whitespace(record.get("country"))
+        if not actual:
+            return True
+        return actual.lower() == requested.lower()
 
     @staticmethod
     def _token_in(token: str, haystack: str) -> bool:

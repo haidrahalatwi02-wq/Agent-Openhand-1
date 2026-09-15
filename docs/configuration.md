@@ -181,6 +181,29 @@ fallback_tags: ["shop=*"]
 Add a category, or an Arabic alias your team actually uses, and it becomes
 available to `--type` immediately. Unmatched terms fall back to `fallback_tags`.
 
+## Customising locations
+
+`locations.json` maps the way people actually type a place onto one canonical
+name. Aliases are matched case- and punctuation-insensitively, so `Aden`,
+`ADEN`, `عدن` and `مدينة عدن` all resolve to `Aden`:
+
+```json
+{
+  "cities": {
+    "Aden": { "country": "Yemen", "aliases": ["aden", "عدن", "مدينة عدن"] }
+  },
+  "countries": {
+    "Yemen": { "aliases": ["yemen", "اليمن", "ye"] }
+  }
+}
+```
+
+Resolution is deliberately conservative. A name that is not listed is returned
+unchanged — never guessed at — so an unknown city simply yields no matches
+instead of silently searching somewhere unintended. There is no environment
+variable for this file yet; edit the packaged data directly or pass an override
+to `LocationResolver.load()` when embedding the library.
+
 ## Customising website checks
 
 `website_signals.yaml` drives the HTTP checker:

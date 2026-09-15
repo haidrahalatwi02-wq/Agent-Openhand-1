@@ -283,3 +283,119 @@ def big_good_html() -> str:
         + ("Quality products and services for every customer. " * 40)
         + '<a href="/contact">Contact</a><a href="/cart">Cart</a></body></html>'
     )
+
+
+class TestLocalizedCliWorkflow:
+    """The documented workflow, driven by Arabic input as real users type it.
+
+    ``lead-finder search --city عدن --type المطاعم --limit 20`` must behave
+    exactly like its English equivalent: resolve the city, honour the country,
+    persist, and export. Only the network is stubbed.
+    """
+
+    def _search(self, db_path: Path, *extra: str) -> int:
+        return main(
+            [
+                "--db", str(db_path), "search",
+                "--city", "عدن",
+                "--type", "المطاعم",
+                "--providers", "sample",
+                "--no-website-check",
+                "--limit", "20",
+                *extra,
+            ]
+        )
+
+    def test_arabic_search_reaches_storage(self, tmp_path: Path, capsys):
+        db_path = tmp_path / "ar.db"
+        assert self._search(db_path) == 0
+        capsys.readouterr()
+
+        repo = SQLiteLeadRepository(db_path)
+        stored = repo.find(LeadFilter(city="Aden"))
+        assert len(stored) == 1
+        assert stored[0].business_name == "Al Bahr Seafood Restaurant"
+        # The Arabic city was folded onto its canonical spelling before storage.
+        assert stored[0].country == "Yemen"
+        repo.close()
+
+    def test_arabic_and_english_searches_agree(self, tmp_path: Path, capsys):
+        """The localized run must produce the same lead set as the English one."""
+        arabic_db = tmp_path / "ar.db"
+        english_db = tmp_path / "en.db"
+        self._search(arabic_db)
+        capsys.readouterr()
+        main(
+            [
+                "--db", str(english_db), "search",
+                "--city", "Aden", "--type", "restaurants",
+                "--providers", "sample", "--no-website-check", "--limit", "20",
+            ]
+        )
+        capsys.readouterr()
+
+        arabic_repo = SQLiteLeadRepository(arabic_db)
+        english_repo = SQLiteLeadRepository(english_db)
+        arabic_names = {lead.business_name for lead in arabic_repo.find(LeadFilter(city="Aden"))}
+        english_names = {lead.business_name for lead in english_repo.find(LeadFilter(city="Aden"))}
+        assert arabic_names == english_names
+        arabic_repo.close()
+        english_repo.close()
+
+    def test_mismatched_country_yields_no_rows(self, tmp_path: Path, capsys):
+        db_path = tmp_path / "mismatch.db"
+        code = main(
+            [
+                "--db", str(db_path), "search",
+                "--city", "عدن", "--country", "Egypt",
+                "--type", "المطاعم", "--providers", "sample",
+                "--no-website-check", "--limit", "20",
+            ]
+        )
+        out = capsys.readouterr().out
+        assert code == 0
+        assert "No leads found." in out
+
+        repo = SQLiteLeadRepository(db_path)
+        assert repo.count() == 0
+        repo.close()
+
+    def test_arabic_workflow_exports_json_and_csv(self, tmp_path: Path, capsys):
+        """Export the localized results in both formats, as the docs describe."""
+        db_path = tmp_path / "export.db"
+        self._search(db_path)
+        capsys.readouterr()
+
+        json_path = tmp_path / "leads.json"
+        csv_path = tmp_path / "leads.csv"
+        assert main(["--db", str(db_path), "export", "--format", "json", "--output", str(json_path)]) == 0
+        assert main(["--db", str(db_path), "export", "--format", "csv", "--output", str(csv_path)]) == 0
+        capsys.readouterr()
+
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        assert payload["metadata"]["count"] == 1
+        assert payload["leads"][0]["business_name"] == "Al Bahr Seafood Restaurant"
+
+        with csv_path.open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        assert len(rows) == 1
+        assert rows[0]["city"] == "Aden"
+        assert rows[0]["business_name"] == "Al Bahr Seafood Restaurant"
+
+    def test_list_and_show_work_after_arabic_search(self, tmp_path: Path, capsys):
+        db_path = tmp_path / "list.db"
+        self._search(db_path)
+        capsys.readouterr()
+
+        assert main(["--db", str(db_path), "list", "--city", "عدن"]) == 0
+        listed = capsys.readouterr().out
+        assert "Al Bahr Seafood Restaurant" in listed
+
+        repo = SQLiteLeadRepository(db_path)
+        lead_id = repo.find(LeadFilter(city="Aden"))[0].id
+        repo.close()
+
+        assert main(["--db", str(db_path), "show", lead_id]) == 0
+        shown = capsys.readouterr().out
+        assert "Al Bahr Seafood Restaurant" in shown
+        assert "Aden" in shown

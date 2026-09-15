@@ -45,11 +45,11 @@ lead-finder search [--city CITY] [--country COUNTRY] [--type TYPE]
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `--city` | `LEAD_FINDER_DEFAULT_CITY` | e.g. `Aden`, `Sanaa` |
-| `--country` | `LEAD_FINDER_DEFAULT_COUNTRY` | e.g. `Yemen` |
+| `--city` | `LEAD_FINDER_DEFAULT_CITY` | e.g. `Aden`, `عدن`, `مدينة عدن` |
+| `--country` | `LEAD_FINDER_DEFAULT_COUNTRY` | e.g. `Yemen`, `اليمن` |
 | `--type` | none | Business type or a free-text term; Arabic aliases work |
 | `--keywords` | none | Comma separated extra terms |
-| `--limit` | `50` | Maximum results to request |
+| `--limit` | `50` | Maximum results to request. Must be positive |
 | `--providers` | `LEAD_FINDER_PROVIDERS` | Comma separated; `osm`, `sample` |
 | `--no-website-check` | off | Skip stage 4 (fast, fully offline) |
 | `--no-store` | off | Do not write to the database |
@@ -57,12 +57,31 @@ lead-finder search [--city CITY] [--country COUNTRY] [--type TYPE]
 | `--json` | off | Emit the complete result as JSON |
 | `--show-stats` | off | Print per-stage pipeline statistics |
 
+### City and country names
+
+City and country names are matched case- and punctuation-insensitively and
+folded onto one canonical spelling, so `عدن`, `مدينة عدن` and `Aden` are the same
+search. Country aliases (`اليمن`, `YE`) resolve too. When you give a city but no
+country, the country is inferred from the city; an explicit country is always
+kept as-is, even when it disagrees with the city.
+
+Anything unrecognized is passed through unchanged rather than guessed at, so a
+misspelled city behaves exactly as it always did: the providers simply return no
+matches. The known places live in
+[`config/data/locations.json`](../lead_finder_agent/config/data/locations.json).
+
 ### Examples
 
 Offline demo, no network required:
 
 ```bash
 lead-finder search --city Aden --type restaurants --providers sample --limit 10
+```
+
+The same search written in Arabic — identical results:
+
+```bash
+lead-finder search --city عدن --type المطاعم --providers sample --limit 10
 ```
 
 Live OpenStreetMap search:

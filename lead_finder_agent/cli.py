@@ -34,6 +34,25 @@ from lead_finder_agent.utils.logging_utils import setup_logging
 from lead_finder_agent.utils.text import parse_keywords
 
 
+def resolve_location_filter(
+    city: Optional[str], country: Optional[str]
+) -> tuple[Optional[str], Optional[str]]:
+    """Canonicalize a city/country pair used to filter stored leads.
+
+    An explicit country is normalized but never replaced; when only a city is
+    given its country is inferred, matching how ``search`` stores leads.
+    """
+    from lead_finder_agent.config.locations import get_location_resolver
+
+    resolver = get_location_resolver()
+    if resolver is None:
+        return city, country
+    canonical_city, inferred_country = resolver.resolve_city(city)
+    if country:
+        return canonical_city, resolver.resolve_country(country)
+    return canonical_city, inferred_country
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser."""
     parser = argparse.ArgumentParser(
@@ -207,9 +226,15 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 def _filter_from_args(args: argparse.Namespace) -> LeadFilter:
     website_status = getattr(args, "website_status", None)
+    # Resolve location filters the same way ``search`` does, otherwise
+    # ``list --city عدن`` would silently match nothing while
+    # ``search --city عدن`` worked.
+    city, country = resolve_location_filter(
+        getattr(args, "city", None), getattr(args, "country", None)
+    )
     return LeadFilter(
-        city=getattr(args, "city", None),
-        country=getattr(args, "country", None),
+        city=city,
+        country=country,
         business_type=getattr(args, "business_type", None),
         source=getattr(args, "source", None),
         priority=getattr(args, "priority", None),

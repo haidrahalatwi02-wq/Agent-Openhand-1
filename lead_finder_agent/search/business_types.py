@@ -12,6 +12,23 @@ from lead_finder_agent.utils.text import normalize_whitespace
 log = get_logger("search.business_types")
 
 
+def categories_match(left: Optional[str], right: Optional[str]) -> bool:
+    """Whether two category values name the same vertical.
+
+    Canonical categories are plural (``restaurants``) while provider records
+    often carry the singular form (``restaurant``), so a plain string comparison
+    would reject an otherwise valid match. Only a trailing plural ``s`` is
+    folded; nothing else is guessed at.
+    """
+    first = (left or "").strip().lower()
+    second = (right or "").strip().lower()
+    if not first or not second:
+        return False
+    if first == second:
+        return True
+    return first.rstrip("s") == second.rstrip("s")
+
+
 @dataclass
 class BusinessTypeResolver:
     """Maps free text like ``"clothing shops"`` to OpenStreetMap selectors."""

@@ -177,7 +177,10 @@ class LeadFinderAgent(BaseAgent):
             keywords=list(keywords or []),
             city=city or settings.default_city,
             country=country or settings.default_country,
-            limit=limit or 50,
+            # ``None`` means "not supplied" and falls back to the default; an
+            # explicit 0 is invalid and must raise rather than silently become
+            # 50, which would misreport how many results the caller asked for.
+            limit=50 if limit is None else limit,
             # Left empty unless the caller asked for specific providers, so the
             # context's injected providers (or settings) are used instead.
             providers=list(providers) if providers else None,

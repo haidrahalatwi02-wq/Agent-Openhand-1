@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "description": "Canonical city/country names with aliases (English + Arabic). Used to fold free-text search input onto one consistent spelling. Unknown values are passed through untouched.",
+  "countries": {
+    "Yemen": {
+      "aliases": ["yemen", "اليمن", "ye", "yem"]
+    },
+    "Saudi Arabia": {
+      "aliases": ["saudi arabia", "saudi", "ksa", "السعودية", "المملكة العربية السعودية", "sa"]
+    },
+    "Egypt": {
+      "aliases": ["egypt", "مصر", "eg"]
+    },
+    "Jordan": {
+      "aliases": ["jordan", "الأردن", "الاردن", "jo"]
+    },
+    "United Arab Emirates": {
+      "aliases": ["united arab emirates", "uae", "emirates", "الإمارات", "الامارات", "ae"]
+    },
+    "Oman": {
+      "aliases": ["oman", "عمان", "سلطنة عمان", "om"]
+    },
+    "Qatar": {
+      "aliases": ["qatar", "قطر", "qa"]
+    },
+    "Kuwait": {
+      "aliases": ["kuwait", "الكويت", "kw"]
+    },
+    "Bahrain": {
+      "aliases": ["bahrain", "البحرين", "bh"]
+    },
+    "Turkey": {
+      "aliases": ["turkey", "türkiye", "turkiye", "تركيا", "tr"]
+    },
+    "Sudan": {
+      "aliases": ["sudan", "السودان", "sd"]
+    },
+    "Djibouti": {
+      "aliases": ["djibouti", "جيبوتي", "dj"]
+    },
+    "Somalia": {
+      "aliases": ["somalia", "الصومال", "so"]
+    },
+    "Iraq": {
+      "aliases": ["iraq", "العراق", "iq"]
+    }
+  },
+  "cities": {
+    "Aden": {
+      "country": "Yemen",
+      "aliases": ["aden", "aden city", "عدن", "مدينة عدن", "crater"]
+    },
+    "Sanaa": {
+      "country": "Yemen",
+      "aliases": ["sanaa", "sana'a", "sanaʿa", "صنعاء", "مدينة صنعاء"]
+    },
+    "Taiz": {
+      "country": "Yemen",
+      "aliases": ["taiz", "ta'izz", "taizz", "تعز", "مدينة تعز"]
+    },
+    "Hodeidah": {
+      "country": "Yemen",
+      "aliases": ["hodeidah", "hudaydah", "al hudaydah", "الحديدة", "مدينة الحديدة"]
+    },
+    "Ibb": {
+      "country": "Yemen",
+      "aliases": ["ibb", "إب", "اب", "مدينة إب"]
+    },
+    "Mukalla": {
+      "country": "Yemen",
+      "aliases": ["mukalla", "al mukalla", "المكلا", "مدينة المكلا"]
+    },
+    "Dhamar": {
+      "country": "Yemen",
+      "aliases": ["dhamar", "ذمار", "مدينة ذمار"]
+    },
+    "Sa'dah": {
+      "country": "Yemen",
+      "aliases": ["sa'dah", "saada", "sadah", "صعدة", "مدينة صعدة"]
+    },
+    "Zabid": {
+      "country": "Yemen",
+      "aliases": ["zabid", "zabīd", "زبيد", "مدينة زبيد"]
+    },
+    "Seiyun": {
+      "country": "Yemen",
+      "aliases": ["seiyun", "sayun", "سيئون", "مدينة سيئون"]
+    },
+    "Marib": {
+      "country": "Yemen",
+      "aliases": ["marib", "ma'rib", "مأرب", "مارب", "مدينة مأرب"]
+    },
+    "Hajjah": {
+      "country": "Yemen",
+      "aliases": ["hajjah", "hajja", "حجة", "مدينة حجة"]
+    },
+    "Al Bayda": {
+      "country": "Yemen",
+      "aliases": ["al bayda", "albayda", "البيضاء", "مدينة البيضاء"]
+    },
+    "Ataq": {
+      "country": "Yemen",
+      "aliases": ["ataq", "عتق", "مدينة عتق"]
+    },
+    "Al Ghaydah": {
+      "country": "Yemen",
+      "aliases": ["al ghaydah", "ghaydah", "الغيضة", "مدينة الغيضة"]
+    },
+    "Riyadh": {
+      "country": "Saudi Arabia",
+      "aliases": ["riyadh", "الرياض", "مدينة الرياض"]
+    },
+    "Jeddah": {
+      "country": "Saudi Arabia",
+      "aliases": ["jeddah", "jedda", "جدة", "مدينة جدة"]
+    },
+    "Cairo": {
+      "country": "Egypt",
+      "aliases": ["cairo", "القاهرة", "مدينة القاهرة"]
+    },
+    "Alexandria": {
+      "country": "Egypt",
+      "aliases": ["alexandria", "الإسكندرية", "الاسكندرية", "مدينة الإسكندرية"]
+    },
+    "Amman": {
+      "country": "Jordan",
+      "aliases": ["amman", "عمّان", "عمان", "مدينة عمان"]
+    },
+    "Dubai": {
+      "country": "United Arab Emirates",
+      "aliases": ["dubai", "دبي", "مدينة دبي"]
+    },
+    "Abu Dhabi": {
+      "country": "United Arab Emirates",
+      "aliases": ["abu dhabi", "أبو ظبي", "ابو ظبي", "مدينة أبو ظبي"]
+    },
+    "Muscat": {
+      "country": "Oman",
+      "aliases": ["muscat", "مسقط", "مدينة مسقط"]
+    },
+    "Doha": {
+      "country": "Qatar",
+      "aliases": ["doha", "الدوحة", "مدينة الدوحة"]
+    },
+    "Istanbul": {
+      "country": "Turkey",
+      "aliases": ["istanbul", "إسطنبول", "اسطنبول", "مدينة إسطنبول"]
+    },
+    "Khartoum": {
+      "country": "Sudan",
+      "aliases": ["khartoum", "الخرطوم", "مدينة الخرطوم"]
+    }
+  }
+}

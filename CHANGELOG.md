@@ -65,15 +65,34 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   store → results, with per-stage statistics and failure isolation.
 - CLI with `search`, `list`, `show`, `export`, `stats` and `providers`.
 - Offline first-run experience via the `sample` provider.
+- Location resolver: city and country input is folded onto one canonical
+  spelling, so `عدن`, `مدينة عدن` and `Aden` are the same search. The country is
+  inferred from the city when omitted. Aliases live in `locations.json`.
 
 #### Project
 - Packaging via `pyproject.toml` with a `lead-finder` console script.
 - `Makefile` for install, test, run-example and clean.
-- 258 tests (249 offline unit tests plus 9 integration tests), all passing.
+- 301 tests (287 offline unit tests plus 14 integration tests), all passing.
 - Documentation: README, ARCHITECTURE, CONTRIBUTING, CHANGELOG, and `docs/`
   covering usage, configuration, architecture, data model, providers and
   development.
 - MIT license.
+
+### Fixed
+
+- Arabic city names returned no results. `--city عدن` searched for the literal
+  string while records are stored as `Aden`, so a documented input silently
+  found nothing. City and country input is now resolved before searching, and
+  `list` and `export` resolve their location filters the same way so a localized
+  filter no longer disagrees with the search that produced the data.
+- The `sample` provider ignored `--country`, returning records for the wrong
+  country. It now excludes records whose country disagrees with an explicit
+  `--country`.
+- A canonical category (`restaurants`) never matched a provider record using the
+  singular form (`restaurant`). Singular and plural are now the same vertical.
+- `--limit 0` silently became 50 because `0` was replaced by the default via
+  `limit or 50`. A non-positive limit now raises instead of misreporting how
+  many results were requested.
 
 ### Notes
 - `website_unknown` is an expected outcome, not an error. It means the check was
