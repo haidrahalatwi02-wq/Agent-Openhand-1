@@ -1,15 +1,10 @@
-"""Entry point for the Lead Finder Agent."""
+"""Allow ``python -m lead_finder_agent`` as an alternative to the console script."""
 
-import asyncio
+from __future__ import annotations
+
 import sys
+
 from lead_finder_agent.cli import main
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nAgent interrupted by user")
-        sys.exit(0)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    sys.exit(main())

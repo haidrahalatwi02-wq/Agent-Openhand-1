@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lead-finder-agent"
+version = "0.1.0"
+description = "An extensible AI agent that finds local businesses without a proper website and scores them as sales leads."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Lead Finder Agent contributors" }]
+keywords = ["leads", "business", "scraper", "agent", "sales", "openstreetmap"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business",
+]
+
+# Only one runtime dependency. Everything else uses the standard library so the
+# project stays easy to install and audit. `requests` is used when available and
+# the HTTP layer falls back to urllib otherwise.
+dependencies = ["requests>=2.31"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4",
+  "pytest-cov>=4.1",
+]
+yaml = ["PyYAML>=6.0"]
+
+[project.scripts]
+lead-finder = "lead_finder_agent.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/haidrahalatwi02-wq/Agent-Openhand-1"
+Issues = "https://github.com/haidrahalatwi02-wq/Agent-Openhand-1/issues"
+
+[tool.setuptools]
+packages = [
+  "lead_finder_agent",
+  "lead_finder_agent.checker",
+  "lead_finder_agent.config",
+  "lead_finder_agent.core",
+  "lead_finder_agent.extraction",
+  "lead_finder_agent.models",
+  "lead_finder_agent.scoring",
+  "lead_finder_agent.search",
+  "lead_finder_agent.storage",
+  "lead_finder_agent.utils",
+]
+
+[tool.setuptools.package-data]
+"lead_finder_agent.config" = ["*.yaml", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "integration: tests that may touch the network (deselected by default)",
+]

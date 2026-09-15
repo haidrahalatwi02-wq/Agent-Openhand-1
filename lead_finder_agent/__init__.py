@@ -1,11 +1,26 @@
-"""Lead Finder Agent - Intelligent lead discovery and qualification system."""
+"""Lead Finder Agent - find local businesses without a website and score them.
 
-__version__ = "1.0.0"
-__author__ = "Lead Finder Team"
-__description__ = "An intelligent lead discovery system using AI and location-based data"
+The public API is intentionally small: build an :class:`AgentCore` (or run the
+CLI) and call :meth:`AgentCore.search`. Every internal component (search
+providers, website checker, scoring, storage) is swappable.
+"""
 
-from lead_finder_agent.core.agent import LeadFinderAgent
-from lead_finder_agent.models.lead import Lead
-from lead_finder_agent.models.search import SearchQuery
+from lead_finder_agent.models import (
+    Lead,
+    LeadScore,
+    SearchQuery,
+    SearchResult,
+    WebsiteCheckResult,
+    WebsiteStatus,
+)
 
-__all__ = ["LeadFinderAgent", "Lead", "SearchQuery"]
+__all__ = [
+    "Lead",
+    "LeadScore",
+    "SearchQuery",
+    "SearchResult",
+    "WebsiteCheckResult",
+    "WebsiteStatus",
+]
+
+__version__ = "0.1.0"

@@ -1,0 +1,111 @@
+"""Search request/response models."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from lead_finder_agent.models.enums import ProviderKind
+
+
+@dataclass
+class SearchQuery:
+    """Input to the search stage."""
+
+    business_type: Optional[str] = None
+    keywords: List[str] = field(default_factory=list)
+    city: Optional[str] = None
+    country: Optional[str] = None
+    limit: int = 50
+    providers: Optional[List[str]] = None
+    language: str = "en"
+
+    def __post_init__(self) -> None:
+        if self.limit <= 0:
+            raise ValueError("limit must be a positive integer")
+        if isinstance(self.keywords, str):
+            self.keywords = [k.strip() for k in self.keywords.split(",") if k.strip()]
+        self.keywords = [k.strip() for k in (self.keywords or []) if k and k.strip()]
+        if self.business_type:
+            self.business_type = self.business_type.strip()
+
+    @property
+    def location(self) -> str:
+        parts = [p for p in (self.city, self.country) if p]
+        return ", ".join(parts)
+
+    def cache_key(self) -> str:
+        providers = ",".join(sorted(self.providers or []))
+        keywords = ",".join(sorted(self.keywords))
+        return (
+            f"{self.business_type}|{keywords}|{self.city}|{self.country}|"
+            f"{self.limit}|{providers}"
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "business_type": self.business_type,
+            "keywords": list(self.keywords),
+            "city": self.city,
+            "country": self.country,
+            "limit": self.limit,
+            "providers": list(self.providers or []),
+            "language": self.language,
+        }
+
+
+@dataclass
+class ProviderResponse:
+    """What a single provider returns."""
+
+    provider: str
+    kind: ProviderKind = ProviderKind.API
+    leads: List[Any] = field(default_factory=list)
+    error: Optional[str] = None
+    skipped_reason: Optional[str] = None
+    elapsed_seconds: float = 0.0
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None
+
+    @property
+    def count(self) -> int:
+        return len(self.leads)
+
+
+@dataclass
+class SearchResult:
+    """Aggregate result of the search stage across all providers."""
+
+    query: SearchQuery
+    leads: List[Any] = field(default_factory=list)
+    responses: List[ProviderResponse] = field(default_factory=list)
+
+    @property
+    def errors(self) -> Dict[str, str]:
+        return {r.provider: r.error for r in self.responses if r.error}
+
+    @property
+    def providers_used(self) -> List[str]:
+        return [r.provider for r in self.responses if r.ok]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query": self.query.to_dict(),
+            "leads": [lead.to_dict() for lead in self.leads],
+            "providers": [
+                {
+                    "provider": r.provider,
+                    "kind": str(r.kind),
+                    "count": r.count,
+                    "error": r.error,
+                    "skipped_reason": r.skipped_reason,
+                    "elapsed_seconds": round(r.elapsed_seconds, 4),
+                }
+                for r in self.responses
+            ],
+        }
+
+
+__all__ = ["SearchQuery", "ProviderResponse", "SearchResult"]

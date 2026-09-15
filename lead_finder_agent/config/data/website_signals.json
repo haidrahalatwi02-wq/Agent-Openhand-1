@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "http": {
+    "timeout_seconds": 10,
+    "schemes": ["https", "http"],
+    "ok_status": [200, 201, 202, 203, 204, 301, 302, 303, 307, 308],
+    "weak_status": [401, 403, 405, 429, 500, 502, 503, 504],
+    "missing_status": [404, 410]
+  },
+  "social_domains": [
+    "facebook.com", "fb.com", "instagram.com", "twitter.com", "x.com",
+    "tiktok.com", "linkedin.com", "pinterest.com", "snapchat.com",
+    "youtube.com", "whatsapp.com", "wa.me", "telegram.me", "t.me"
+  ],
+  "weak_hosts": [
+    "wixsite.com", "weebly.com", "blogspot.com", "wordpress.com",
+    "business.site", "google.com", "linktr.ee"
+  ],
+  "shop_markers": [
+    "add to cart", "add to basket", "addtocart", "shopping-cart",
+    "shopping_cart", "checkout", "woocommerce", "shopify", "salla",
+    "zid.store", "cart", "السلة", "أضف إلى السلة", "إضافة إلى السلة", "الدفع"
+  ],
+  "contact_markers": [
+    "contact us", "contact-us", "/contact", "اتصل بنا", "تواصل معنا",
+    "mailto:", "tel:"
+  ],
+  "contact_paths": ["/contact", "/contact-us", "/contactus", "/اتصل-بنا"],
+  "min_content_length": 400,
+  "placeholder_markers": [
+    "domain for sale", "this domain is for sale", "buy this domain",
+    "parked domain", "under construction", "coming soon", "site not found",
+    "default web site page", "welcome to nginx",
+    "apache2 debian default page", "it works!"
+  ],
+  "outdated_after_years": 4
+}
