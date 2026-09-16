@@ -9,6 +9,11 @@ http:
   timeout_seconds: 10
   # Try HTTPS first, then HTTP.
   schemes: ["https", "http"]
+  # Stop after this many redirects; a longer chain is reported as unreachable
+  # rather than followed, so a redirect loop can never hang a run.
+  max_redirects: 5
+  # Read at most this many bytes of any response body.
+  max_response_bytes: 1000000
   # Statuses that mean "a site exists here".
   ok_status: [200, 201, 202, 203, 204, 301, 302, 303, 307, 308]
   # Statuses that strongly suggest a site exists but is broken.

@@ -47,6 +47,21 @@ Settings are resolved once, in this order (later wins):
 | `LEAD_FINDER_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint |
 | `LEAD_FINDER_NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | Geocoding endpoint |
 
+### Website checker
+
+The checker fetches each business's website. These settings bound those
+requests; see [website-checker.md](website-checker.md) for why each one exists.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `WEBSITE_CHECK_TIMEOUT` | `10` | Seconds to wait for a website before giving up |
+| `WEBSITE_MAX_REDIRECTS` | `5` | Redirects to follow. A longer chain is reported as unreachable, never followed |
+| `WEBSITE_MAX_RESPONSE_SIZE` | `1000000` | Maximum bytes read from a response body. Longer bodies are truncated, not downloaded |
+| `WEBSITE_CACHE_ENABLED` | `true` | Reuse one check per distinct URL within a single search |
+
+Each accepts a `LEAD_FINDER_`-prefixed alias (`LEAD_FINDER_WEBSITE_CHECK_TIMEOUT`,
+and so on) for consistency with the other settings.
+
 ### Scoring and rules
 
 | Variable | Default | Meaning |

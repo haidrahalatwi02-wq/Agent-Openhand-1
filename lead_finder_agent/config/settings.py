@@ -85,6 +85,13 @@ class Settings:
     nominatim_url: str = "https://nominatim.openstreetmap.org"
     scoring_rules_path: Optional[Path] = None
     business_types_path: Optional[Path] = None
+    # --- Website checker ---
+    # Limits on the checker's own requests. These are guards against a hostile or
+    # broken site, not secrets, so they live in plain config.
+    website_check_timeout: float = 10.0
+    website_max_redirects: int = 5
+    website_max_response_size: int = 1_000_000
+    website_cache_enabled: bool = True
     # --- Google Places (New) ---
     # The credential is deliberately NOT a field here: it is read from the
     # environment inside the provider, so it cannot be carried into a settings
@@ -136,6 +143,38 @@ class Settings:
             or "https://nominatim.openstreetmap.org",
             scoring_rules_path=resolve_path(rules_path) if rules_path else None,
             business_types_path=resolve_path(types_path) if types_path else None,
+            website_check_timeout=max(
+                1.0,
+                safe_float(
+                    get("WEBSITE_CHECK_TIMEOUT", get("LEAD_FINDER_WEBSITE_CHECK_TIMEOUT", "10")),
+                    10.0,
+                )
+                or 10.0,
+            ),
+            website_max_redirects=max(
+                0,
+                safe_int(
+                    get("WEBSITE_MAX_REDIRECTS", get("LEAD_FINDER_WEBSITE_MAX_REDIRECTS", "5")),
+                    5,
+                )
+                or 0,
+            ),
+            website_max_response_size=max(
+                1024,
+                safe_int(
+                    get(
+                        "WEBSITE_MAX_RESPONSE_SIZE",
+                        get("LEAD_FINDER_WEBSITE_MAX_RESPONSE_SIZE", "1000000"),
+                    ),
+                    1_000_000,
+                )
+                or 1_000_000,
+            ),
+            website_cache_enabled=(
+                get("WEBSITE_CACHE_ENABLED", get("LEAD_FINDER_WEBSITE_CACHE", "true"))
+                or "true"
+            ).strip().lower()
+            not in ("0", "false", "no", "off"),
             google_places_endpoint=get(
                 "LEAD_FINDER_GOOGLE_PLACES_ENDPOINT", DEFAULT_GOOGLE_PLACES_ENDPOINT
             )

@@ -5,6 +5,8 @@ from lead_finder_agent.models.enums import (
     Confidence,
     LeadPriority,
     ProviderKind,
+    WebsiteErrorKind,
+    WebsiteIdentity,
     WebsiteQuality,
     WebsiteStatus,
 )
@@ -32,6 +34,8 @@ __all__ = [
     "ProviderResponse",
     "WebsiteStatus",
     "WebsiteQuality",
+    "WebsiteErrorKind",
+    "WebsiteIdentity",
     "BusinessStatus",
     "Confidence",
     "LeadPriority",

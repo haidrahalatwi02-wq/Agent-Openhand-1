@@ -49,6 +49,31 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A guessed domain returning 404 stays `website_unknown` by design; only a URL
   from the source data can yield `website_not_found`.
 
+#### Website checker hardening
+- URL validation module (`checker/urls.py`): scheme-less values are completed to
+  HTTPS, while `javascript:`, `data:`, `file:`, `ftp:`, `mailto:` and
+  credential-bearing URLs are rejected before any request is made.
+- Redirect handling: chains are followed to a configurable cap, and a loop or an
+  over-long chain is reported as `website_unreachable` with
+  `error_kind=redirect_limit` instead of being followed indefinitely.
+- Response size cap: a body larger than `WEBSITE_MAX_RESPONSE_SIZE` is truncated
+  and flagged `truncated`, never downloaded in full.
+- Per-request timing (`response_time_ms`) and the final URL after redirects.
+- Structured error taxonomy (`WebsiteErrorKind`) so failures are classified
+  rather than pattern-matched at the call site, with short human wording that
+  never exposes raw exception text.
+- Identity strength (`WebsiteIdentity`: `provided`, `title_match`, `uncertain`,
+  `not_applicable`), so a reachable page is never silently claimed as owned.
+- Checker registry (`create_checker`, `register_checker`,
+  `available_checkers`), so an additional verification strategy can be added
+  without changing the pipeline. Duplicate registration fails loudly.
+- Per-run URL cache: a repeated domain is requested once per search, and cached
+  results are returned as copies so caller edits cannot leak between leads.
+- Checker settings: `WEBSITE_CHECK_TIMEOUT`, `WEBSITE_MAX_REDIRECTS`,
+  `WEBSITE_MAX_RESPONSE_SIZE`, `WEBSITE_CACHE_ENABLED`.
+- The CLI prints a legend under the results table stating that an unconfirmed
+  website does not mean the business has no website.
+
 #### Scoring
 - Declarative, data-driven rule engine: score, confidence, priority and
   human-readable reasons.

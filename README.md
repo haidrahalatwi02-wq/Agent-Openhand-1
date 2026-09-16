@@ -177,7 +177,7 @@ lead_finder_agent/
 ├── models/       Lead, SearchQuery and related data models
 └── cli.py        Command line interface
 tests/            Unit and integration tests (offline by default)
-docs/             Usage, configuration, architecture, data model, providers, development
+docs/             Usage, configuration, architecture, data model, providers, website checker, development
 ```
 
 ---
@@ -251,6 +251,7 @@ in the pipeline changes. Adding a data source means subclassing
 | [docs/architecture.md](docs/architecture.md) | Components, data flow, extension points |
 | [docs/data-model.md](docs/data-model.md) | Every Lead field, and the data policy |
 | [docs/providers.md](docs/providers.md) | Built-in providers and how to add one |
+| [docs/website-checker.md](docs/website-checker.md) | How a website is verified, and why a failed check is not "no website" |
 | [docs/development.md](docs/development.md) | Setup, testing, adding agents and providers |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Architecture overview |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |

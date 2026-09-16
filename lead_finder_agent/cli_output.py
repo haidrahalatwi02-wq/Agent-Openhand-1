@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 #: Terminal width used when we cannot detect one.
 DEFAULT_WIDTH = 140
@@ -65,6 +65,64 @@ def _truncate(text: str, width: int) -> str:
 LEAD_HEADERS = ("Business", "City", "Website", "Website Status", "Score", "Confidence", "Priority")
 
 
+#: Printed after a lead table so the status column cannot be misread. The point
+#: that matters is the last one: an absent or unknown website is not proof the
+#: business has none, and the table must never imply otherwise.
+WEBSITE_STATUS_LEGEND = (
+    "Website status: website_exists = reached and verified; "
+    "website_unreachable = URL present but the request failed; "
+    "website_not_found = server confirmed the page is gone; "
+    "website_unknown = not determined.",
+    "A '-' website or website_unknown means no website was confirmed - "
+    "it does NOT mean the business has no website.",
+)
+
+
+def format_website_legend() -> str:
+    """Footer explaining the website status column."""
+    return "\n".join(WEBSITE_STATUS_LEGEND)
+
+
+def _humanize_error_key(kind: Optional[str]) -> str:
+    """Map a stored error kind onto a short phrase for display.
+
+    The CLI shows the classification, never the underlying exception text, which
+    could leak internal hostnames or library internals.
+    """
+    from lead_finder_agent.checker.errors import humanize_error
+    from lead_finder_agent.models import WebsiteErrorKind
+
+    if not kind:
+        return ""
+    try:
+        return humanize_error(WebsiteErrorKind(kind))
+    except ValueError:
+        return humanize_error(WebsiteErrorKind.UNKNOWN)
+
+
+def _website_check_summary(lead: Any) -> str:
+    """One-line website-check summary derived from the stored check payload."""
+    payload = (getattr(lead, "raw", None) or {}).get("website_check") or {}
+    if not payload:
+        return "-"
+    parts: List[str] = []
+    if payload.get("http_status"):
+        parts.append(f"HTTP {payload['http_status']}")
+    if payload.get("final_url"):
+        parts.append(f"final {payload['final_url']}")
+    if payload.get("response_time_ms") is not None:
+        parts.append(f"{payload['response_time_ms']} ms")
+    if payload.get("identity"):
+        parts.append(str(payload["identity"]))
+    if payload.get("error_kind"):
+        phrase = _humanize_error_key(payload["error_kind"])
+        if phrase:
+            parts.append(phrase)
+    if payload.get("page_title"):
+        parts.append(f"title {str(payload['page_title'])[:60]}")
+    return "; ".join(parts) or "-"
+
+
 def lead_rows(leads: Iterable[Any]) -> List[List[str]]:
     """Rows for the standard lead table."""
     return [lead.summary_row() for lead in leads]
@@ -83,6 +141,7 @@ def format_lead_detail(lead: Any) -> str:
         f"Website         : {lead.website_url or '-'}",
         f"Website status  : {lead.website_status}",
         f"Website quality : {lead.website_quality}",
+        f"Website check   : {_website_check_summary(lead)}",
         f"Social          : {', '.join(f'{k}: {v}' for k, v in lead.social_links.items()) or '-'}",
         f"Source          : {lead.source or '-'}",
         f"Source URL      : {lead.source_url or '-'}",
@@ -123,5 +182,6 @@ __all__ = [
     "lead_rows",
     "format_lead_detail",
     "format_stats",
+    "format_website_legend",
     "LEAD_HEADERS",
 ]

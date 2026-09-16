@@ -16,6 +16,8 @@ from lead_finder_agent.models.enums import (
     BusinessStatus,
     Confidence,
     LeadPriority,
+    WebsiteErrorKind,
+    WebsiteIdentity,
     WebsiteQuality,
     WebsiteStatus,
 )
@@ -104,11 +106,30 @@ class WebsiteCheckResult:
     checked_at: Optional[datetime] = None
     notes: List[str] = field(default_factory=list)
     error: Optional[str] = None
+    # --- verification detail (additive; older records deserialize unchanged) ---
+    #: URL that was actually reached, after any redirects.
+    final_url: Optional[str] = None
+    #: Wall-clock duration of the whole check, in milliseconds.
+    response_time_ms: Optional[int] = None
+    #: Structured failure reason; see :class:`WebsiteErrorKind`.
+    error_kind: Optional[WebsiteErrorKind] = None
+    #: ``<title>`` text when the response body could be parsed safely.
+    page_title: Optional[str] = None
+    #: Where the candidate URL came from, for provenance.
+    website_source: Optional[str] = None
+    #: How strongly the page could be tied to the business.
+    identity: WebsiteIdentity = WebsiteIdentity.NOT_APPLICABLE
+    #: True when the body hit the configured size cap and was cut short.
+    truncated: bool = False
+    #: Set when the result came from the per-run cache instead of a new request.
+    from_cache: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
         data["status"] = str(self.status)
         data["quality"] = str(self.quality)
+        data["error_kind"] = str(self.error_kind) if self.error_kind else None
+        data["identity"] = str(self.identity)
         data["checked_at"] = isoformat(self.checked_at)
         return data
 
@@ -117,6 +138,12 @@ class WebsiteCheckResult:
         payload = dict(data or {})
         payload["status"] = WebsiteStatus(payload.get("status") or WebsiteStatus.NOT_CHECKED)
         payload["quality"] = WebsiteQuality(payload.get("quality") or WebsiteQuality.UNKNOWN)
+        error_kind = payload.get("error_kind")
+        payload["error_kind"] = WebsiteErrorKind(error_kind) if error_kind else None
+        identity = payload.get("identity")
+        payload["identity"] = (
+            WebsiteIdentity(identity) if identity else WebsiteIdentity.NOT_APPLICABLE
+        )
         payload["checked_at"] = parse_datetime(payload.get("checked_at"))
         payload.setdefault("notes", [])
         return cls(**{k: v for k, v in payload.items() if k in cls.__dataclass_fields__})

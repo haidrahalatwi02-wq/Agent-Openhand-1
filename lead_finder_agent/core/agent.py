@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
 from lead_finder_agent.checker.base import BaseWebsiteChecker
-from lead_finder_agent.checker.http_checker import HttpWebsiteChecker
+from lead_finder_agent.checker.registry import create_checker
 from lead_finder_agent.config.settings import Settings, get_settings
 from lead_finder_agent.core.pipeline import LeadFinderPipeline, PipelineResult
 from lead_finder_agent.extraction.deduplicator import Deduplicator
@@ -100,12 +100,16 @@ class AgentContext:
     def resolve_checker(self) -> BaseWebsiteChecker:
         if self.checker is None:
             settings = self.settings
-            self.checker = HttpWebsiteChecker(
+            self.checker = create_checker(
+                "http",
                 config={
                     "user_agent": settings.user_agent,
-                    "http_timeout": settings.http_timeout,
+                    "http_timeout": settings.website_check_timeout,
                     "max_retries": 0,
-                }
+                    "max_redirects": settings.website_max_redirects,
+                    "max_response_size": settings.website_max_response_size,
+                    "cache": settings.website_cache_enabled,
+                },
             )
         return self.checker
 

@@ -44,6 +44,40 @@ class WebsiteQuality(StrEnum):
     UNKNOWN = "unknown"
 
 
+class WebsiteErrorKind(StrEnum):
+    """Machine-readable reason a website check could not conclude.
+
+    Callers branch on these instead of parsing message text, and the CLI maps
+    them to a short human phrase so raw exception details never reach a user.
+    """
+
+    INVALID_URL = "invalid_url"
+    TIMEOUT = "timeout"
+    DNS_FAILURE = "dns_failure"
+    TLS_FAILURE = "tls_failure"
+    CONNECTION_FAILURE = "connection_failure"
+    HTTP_ERROR = "http_error"
+    REDIRECT_LIMIT = "redirect_limit"
+    RESPONSE_TOO_LARGE = "response_too_large"
+    MALFORMED_RESPONSE = "malformed_response"
+    UNKNOWN = "unknown_error"
+
+
+class WebsiteIdentity(StrEnum):
+    """How strongly a reachable page can be tied to the business.
+
+    Separate from :class:`WebsiteStatus` on purpose. Status answers "can we
+    reach a website?", identity answers "is it plausibly *this* business's?".
+    Folding the two together would either overstate ownership or downgrade a
+    perfectly reachable site, so both are reported and neither is invented.
+    """
+
+    PROVIDED = "provided_by_source"
+    TITLE_MATCH = "title_match"
+    UNCERTAIN = "uncertain"
+    NOT_APPLICABLE = "not_applicable"
+
+
 class BusinessStatus(StrEnum):
     """Whether the business appears to still be operating."""
 
@@ -81,6 +115,8 @@ __all__ = [
     "StrEnum",
     "WebsiteStatus",
     "WebsiteQuality",
+    "WebsiteErrorKind",
+    "WebsiteIdentity",
     "BusinessStatus",
     "Confidence",
     "LeadPriority",

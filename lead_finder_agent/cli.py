@@ -22,6 +22,7 @@ from lead_finder_agent.cli_output import (
     LEAD_HEADERS,
     format_lead_detail,
     format_stats,
+    format_website_legend,
     lead_rows,
     render_table,
 )
@@ -200,6 +201,9 @@ def cmd_search(args: argparse.Namespace) -> int:
         leads = result.top(args.limit)
         if leads:
             print(render_table(LEAD_HEADERS, lead_rows(leads)))
+            # Spell out the status column, so "-" is never read as "no website".
+            print()
+            print(format_website_legend())
         else:
             print("No leads found.")
         hot = sum(1 for lead in leads if str(lead.priority) == "hot")

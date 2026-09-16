@@ -55,6 +55,16 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         "LEAD_FINDER_OSM_OVERSAMPLE",
         "LEAD_FINDER_OVERPASS_URL",
         "LEAD_FINDER_NOMINATIM_URL",
+        # Website-checker limits must not leak in either; a real timeout or size
+        # cap would change what the checker reports.
+        "WEBSITE_CHECK_TIMEOUT",
+        "WEBSITE_MAX_REDIRECTS",
+        "WEBSITE_MAX_RESPONSE_SIZE",
+        "WEBSITE_CACHE_ENABLED",
+        "LEAD_FINDER_WEBSITE_CHECK_TIMEOUT",
+        "LEAD_FINDER_WEBSITE_MAX_REDIRECTS",
+        "LEAD_FINDER_WEBSITE_MAX_RESPONSE_SIZE",
+        "LEAD_FINDER_WEBSITE_CACHE",
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("LEAD_FINDER_DB_PATH", str(tmp_path / "test.db"))

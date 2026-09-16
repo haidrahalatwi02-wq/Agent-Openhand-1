@@ -78,7 +78,10 @@ seen in, and a merge never moves a record. The `limit` is applied *after* this
 stage, so duplicates in an earlier provider cannot consume the budget and starve
 a later one.
 
-**Website check.** See [the checker module](#website-checker) below.
+**Website check.** See [docs/website-checker.md](website-checker.md) for the
+verification rules, the safety limits on outbound requests, and the error
+taxonomy. The checker is registered by name, so an additional strategy can be
+added without changing the pipeline.
 
 **Scoring.** Builds a signal dictionary from the lead and the check result, then
 evaluates every rule whose conditions all hold. The sum is clamped to
