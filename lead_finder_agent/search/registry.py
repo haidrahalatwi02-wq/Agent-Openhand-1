@@ -109,7 +109,11 @@ def _ensure_builtin_providers() -> None:
 
     # Direct submodule imports guarantee registration even if the package
     # __init__ is customised later.
-    from lead_finder_agent.search.providers import osm, sample  # noqa: F401,WPS433
+    from lead_finder_agent.search.providers import (  # noqa: F401,WPS433
+        google_places,
+        osm,
+        sample,
+    )
 
 
 __all__ = [

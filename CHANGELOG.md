@@ -15,6 +15,22 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `osm` provider: OpenStreetMap discovery through Overpass, geocoded with
   Nominatim. Free and keyless.
 - `sample` provider: eight fictional businesses for offline demos and tests.
+- `google_places` provider: real business discovery through the official Google
+  Places API (New) text search. Keyed, paid, and skipped automatically when the
+  key is absent.
+- Provider error taxonomy (`ProviderErrorKind`: `invalid_config`, `missing_key`,
+  `rate_limited`, `network`, `malformed_response`, `provider_error`) with
+  retryability, exposed on each response as `error_kind` and in `--json` output.
+- Pagination support in the provider contract: providers report `pages_fetched`,
+  follow `nextPageToken` until the requested limit is met, and never return more
+  results than `limit`.
+- De-duplication of Google Places records on the stable place `id`, with a
+  deterministic public-field fallback when an id is absent.
+- Google Places configuration: `LEAD_FINDER_GOOGLE_PLACES_KEY_ENV`,
+  `LEAD_FINDER_GOOGLE_PLACES_ENDPOINT`,
+  `LEAD_FINDER_GOOGLE_PLACES_MAX_PAGES`, `LEAD_FINDER_GOOGLE_PLACES_LANGUAGE`.
+  The API key itself is read from the environment inside the provider and is
+  never stored on the settings object.
 - Multi-provider fan-out with per-provider isolation: one failing source never
   stops a run.
 - Business-type resolver with English and Arabic aliases, configurable in

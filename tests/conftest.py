@@ -40,6 +40,13 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         "LEAD_FINDER_SCORING_RULES",
         "LEAD_FINDER_DEFAULT_CITY",
         "LEAD_FINDER_DEFAULT_COUNTRY",
+        # A real Google key on the developer's machine must not leak into a
+        # test that expects the provider to be unavailable.
+        "GOOGLE_PLACES_API_KEY",
+        "LEAD_FINDER_GOOGLE_PLACES_KEY_ENV",
+        "LEAD_FINDER_GOOGLE_PLACES_ENDPOINT",
+        "LEAD_FINDER_GOOGLE_PLACES_MAX_PAGES",
+        "LEAD_FINDER_GOOGLE_PLACES_LANGUAGE",
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("LEAD_FINDER_DB_PATH", str(tmp_path / "test.db"))
@@ -269,9 +276,70 @@ def sample_provider_config() -> Dict[str, Any]:
     return {"default_city": "Aden", "default_country": "Yemen"}
 
 
+def google_place(
+    place_id: str = "place-1",
+    name: str = "Example Business",
+    *,
+    city: str = "Aden",
+    country: str = "Yemen",
+    **overrides: Any,
+) -> Dict[str, Any]:
+    """Build one Google Places v1 ``place`` object.
+
+    Mirrors the real response shape (nested ``displayName``, typed
+    ``addressComponents``) so the provider is exercised against something
+    faithful rather than a convenience format.
+    """
+    place: Dict[str, Any] = {
+        "id": place_id,
+        "displayName": {"text": name, "languageCode": "en"},
+        "formattedAddress": f"1 Example Street, {city}, {country}",
+        "shortFormattedAddress": f"1 Example Street, {city}",
+        "addressComponents": [
+            {"longText": city, "shortText": city, "types": ["locality"]},
+            {"longText": country, "shortText": country, "types": ["country"]},
+        ],
+        "types": ["restaurant", "food"],
+        "primaryType": "restaurant",
+        "nationalPhoneNumber": "+000 1 234 5678",
+        "websiteUri": "https://example.com",
+        "location": {"latitude": 12.7855, "longitude": 45.0187},
+        "rating": 4.5,
+        "userRatingCount": 42,
+        "businessStatus": "OPERATIONAL",
+        "googleMapsUri": f"https://maps.google.com/?cid={place_id}",
+    }
+    place.update(overrides)
+    return place
+
+
+def google_page(
+    places: List[Dict[str, Any]],
+    next_page_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build one Google Places ``searchText`` response body."""
+    body: Dict[str, Any] = {"places": places}
+    if next_page_token:
+        body["nextPageToken"] = next_page_token
+    return body
+
+
+@pytest.fixture
+def google_places_key(monkeypatch: pytest.MonkeyPatch) -> str:
+    """A fake key. Never a real credential, and never asserted against a log."""
+    value = "test-key-not-a-real-secret"
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", value)
+    return value
+
+
 def json_response(payload: Any, status: int = 200) -> HttpResponse:
     """Helper for building a JSON HTTP response in tests."""
     return HttpResponse(status, json.dumps(payload), {"content-type": "application/json"})
 
 
-__all__ = ["FakeTransport", "json_response"]
+__all__ = [
+    "FakeTransport",
+    "json_response",
+    "google_place",
+    "google_page",
+]

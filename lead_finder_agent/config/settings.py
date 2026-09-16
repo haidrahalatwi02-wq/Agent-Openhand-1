@@ -12,6 +12,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from lead_finder_agent.config.loader import PROJECT_ROOT, resolve_path
+from lead_finder_agent.search.providers.google_places import (
+    DEFAULT_API_KEY_ENV as DEFAULT_GOOGLE_PLACES_API_KEY_ENV,
+)
+from lead_finder_agent.search.providers.google_places import (
+    DEFAULT_ENDPOINT as DEFAULT_GOOGLE_PLACES_ENDPOINT,
+)
 from lead_finder_agent.utils.http import DEFAULT_USER_AGENT
 from lead_finder_agent.utils.text import parse_keywords, safe_int
 
@@ -69,6 +75,14 @@ class Settings:
     nominatim_url: str = "https://nominatim.openstreetmap.org"
     scoring_rules_path: Optional[Path] = None
     business_types_path: Optional[Path] = None
+    # --- Google Places (New) ---
+    # The credential is deliberately NOT a field here: it is read from the
+    # environment inside the provider, so it cannot be carried into a settings
+    # dump, a config log line, or a serialized search result.
+    google_places_endpoint: str = DEFAULT_GOOGLE_PLACES_ENDPOINT
+    google_places_api_key_env: str = DEFAULT_GOOGLE_PLACES_API_KEY_ENV
+    google_places_max_pages: int = 3
+    google_places_language: Optional[str] = None
     extra: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -106,6 +120,18 @@ class Settings:
             or "https://nominatim.openstreetmap.org",
             scoring_rules_path=resolve_path(rules_path) if rules_path else None,
             business_types_path=resolve_path(types_path) if types_path else None,
+            google_places_endpoint=get(
+                "LEAD_FINDER_GOOGLE_PLACES_ENDPOINT", DEFAULT_GOOGLE_PLACES_ENDPOINT
+            )
+            or DEFAULT_GOOGLE_PLACES_ENDPOINT,
+            google_places_api_key_env=get(
+                "LEAD_FINDER_GOOGLE_PLACES_KEY_ENV", DEFAULT_GOOGLE_PLACES_API_KEY_ENV
+            )
+            or DEFAULT_GOOGLE_PLACES_API_KEY_ENV,
+            google_places_max_pages=max(
+                1, safe_int(get("LEAD_FINDER_GOOGLE_PLACES_MAX_PAGES", "3"), 3) or 3
+            ),
+            google_places_language=get("LEAD_FINDER_GOOGLE_PLACES_LANGUAGE"),
         )
 
     def with_overrides(self, **kwargs: Any) -> "Settings":

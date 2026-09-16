@@ -52,10 +52,11 @@ stage without reimplementing the run.
 ### Stage detail
 
 **Search.** `MultiProviderSearch` queries every provider and collects
-`ProviderResponse` objects. A provider that raises is captured as an error
-response; one that cannot run (missing key, unreachable service) returns a
-`skipped_reason`. Either way the other providers still run. The result is capped
-at `SearchQuery.limit`.
+`ProviderResponse` objects. A provider that raises `ProviderError` is captured as
+a classified error response (`error_kind`); one that cannot run (missing key,
+unreachable service) returns a `skipped_reason`. Either way the other providers
+still run. The result is capped at `SearchQuery.limit`. Providers that page
+through an upstream API report how many calls they made via `pages_fetched`.
 
 **Normalize.** `LeadNormalizer` applies an alias table, because every source
 names things differently (`name`, `business_name`, `title`; `category`, `type`,

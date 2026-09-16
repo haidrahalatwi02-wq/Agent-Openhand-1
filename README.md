@@ -77,6 +77,13 @@ lead-finder search --city Aden --type restaurants --providers sample --limit 10
 
 # Live search using OpenStreetMap (free, no key required)
 lead-finder search --city Aden --country Yemen --type restaurants --limit 50
+
+# Real business data via Google Places (needs GOOGLE_PLACES_API_KEY)
+export GOOGLE_PLACES_API_KEY="your-key-here"
+lead-finder search --city Aden --country Yemen --type restaurants --limit 20 --providers google_places
+
+# Any country and city works - nothing is hard-coded to one market
+lead-finder search --city Lisbon --country Portugal --type bakeries --limit 20 --providers google_places
 ```
 
 ### 5. Review the results
@@ -160,7 +167,7 @@ can replace. Details: [ARCHITECTURE.md](ARCHITECTURE.md) and
 
 ```
 lead_finder_agent/
-├── search/       Search providers (OpenStreetMap, sample) + registry
+├── search/       Search providers (Google Places, OpenStreetMap, sample) + registry
 ├── checker/      Website existence and quality checks
 ├── scoring/      Configurable rule engine
 ├── extraction/   Normalization and de-duplication
@@ -258,6 +265,13 @@ in the pipeline changes. Adding a data source means subclassing
   are free community services: use a descriptive `LEAD_FINDER_USER_AGENT`,
   searches are rate-limited on purpose, and heavy use is discouraged.
 - The **sample** provider is offline fictional data for demos and tests.
+- The **Google Places** provider returns real business data and needs a paid
+  `GOOGLE_PLACES_API_KEY`. Without a key it is skipped automatically, so it is
+  safe to list it among your providers. Its results are subject to Google's
+  terms of service, and coverage is uneven outside dense urban areas. See
+  [docs/providers.md](docs/providers.md) for the full list of limitations.
+- Searches are not tied to any country. Country, city, type, keywords and limit
+  all come from the caller.
 - `website_unknown` is a real, expected outcome. It means the check was
   inconclusive — not that the business has no website.
 - Statuses come from public tags and HTTP responses at a point in time. Verify

@@ -35,7 +35,7 @@ Settings are resolved once, in this order (later wins):
 | `LEAD_FINDER_DB_PATH` | `data/leads.db` | SQLite file. Relative paths resolve from the repo root |
 | `LEAD_FINDER_DEFAULT_COUNTRY` | `Yemen` | Used when a search omits `--country` |
 | `LEAD_FINDER_DEFAULT_CITY` | `Aden` | Used when a search omits `--city` |
-| `LEAD_FINDER_PROVIDERS` | `osm,sample` | Providers to query, in order |
+| `LEAD_FINDER_PROVIDERS` | `osm,sample` | Providers to query, in order. Add `google_places` to include it |
 
 ### HTTP
 
@@ -57,13 +57,31 @@ Settings are resolved once, in this order (later wins):
 If the path does not exist the packaged defaults are used and a warning is
 logged, so a typo cannot break a run.
 
-### Optional provider keys
+### Google Places (New)
 
-These are only read by a provider that asks for them. None is required.
+Used by the `google_places` provider, which returns real business data. All of
+these are optional: without a key the provider reports itself unavailable and is
+skipped, and every other provider still runs.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GOOGLE_PLACES_API_KEY` | *(empty)* | **Secret.** The API key. Set it in `.env`, never in a command you share |
+| `LEAD_FINDER_GOOGLE_PLACES_KEY_ENV` | `GOOGLE_PLACES_API_KEY` | Which variable holds the key, if you keep it under another name |
+| `LEAD_FINDER_GOOGLE_PLACES_ENDPOINT` | Google's endpoint | Override only for a proxy or compatible API |
+| `LEAD_FINDER_GOOGLE_PLACES_MAX_PAGES` | `3` | Maximum result pages (each up to 20 places) |
+| `LEAD_FINDER_GOOGLE_PLACES_LANGUAGE` | *(unset)* | Optional BCP-47 hint, e.g. `en` or `ar` |
+
+The key is deliberately not stored on the `Settings` object. It is read from the
+environment inside the provider, so it cannot be carried into a settings dump, a
+logged config line, or a serialized search result. It is sent only in the
+`X-Goog-Api-Key` request header.
+
+### Other provider keys
+
+Placeholders for providers that are not wired in. Nothing reads them yet.
 
 | Variable | Used by |
 | --- | --- |
-| `GOOGLE_PLACES_API_KEY` | A Google Places provider, if you add one |
 | `SERPAPI_API_KEY` | A SerpAPI provider, if you add one |
 | `LEAD_FINDER_CUSTOM_API_KEY` | Placeholder for a custom provider |
 

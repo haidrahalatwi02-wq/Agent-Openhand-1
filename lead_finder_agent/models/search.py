@@ -104,8 +104,10 @@ class ProviderResponse:
     kind: ProviderKind = ProviderKind.API
     leads: List[Any] = field(default_factory=list)
     error: Optional[str] = None
+    error_kind: Optional[str] = None
     skipped_reason: Optional[str] = None
     elapsed_seconds: float = 0.0
+    pages_fetched: int = 0
 
     @property
     def ok(self) -> bool:
@@ -114,6 +116,14 @@ class ProviderResponse:
     @property
     def count(self) -> int:
         return len(self.leads)
+
+    @property
+    def empty(self) -> bool:
+        """True when the provider ran cleanly but had nothing to offer.
+
+        Distinct from a failure: "no results" is a successful search.
+        """
+        return self.ok and not self.leads
 
 
 @dataclass
@@ -142,7 +152,9 @@ class SearchResult:
                     "kind": str(r.kind),
                     "count": r.count,
                     "error": r.error,
+                    "error_kind": r.error_kind,
                     "skipped_reason": r.skipped_reason,
+                    "pages_fetched": r.pages_fetched,
                     "elapsed_seconds": round(r.elapsed_seconds, 4),
                 }
                 for r in self.responses

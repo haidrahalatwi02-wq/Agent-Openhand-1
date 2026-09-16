@@ -83,6 +83,13 @@ class AgentContext:
             "default_country": settings.default_country,
             "default_city": settings.default_city,
             "business_types_path": settings.business_types_path,
+            # Google Places. Note that the API key itself is intentionally not
+            # included: the provider reads it from the environment named by
+            # ``api_key_env``, so the secret never travels through this mapping.
+            "google_places_endpoint": settings.google_places_endpoint,
+            "api_key_env": settings.google_places_api_key_env,
+            "max_pages": settings.google_places_max_pages,
+            "language_code": settings.google_places_language,
         }
 
     def resolve_checker(self) -> BaseWebsiteChecker:

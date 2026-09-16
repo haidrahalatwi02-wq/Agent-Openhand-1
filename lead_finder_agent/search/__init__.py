@@ -1,6 +1,11 @@
 """Search providers and the registry that resolves them by name."""
 
-from lead_finder_agent.search.base import BaseSearchProvider, ProviderSkip
+from lead_finder_agent.search.base import (
+    BaseSearchProvider,
+    ProviderError,
+    ProviderErrorKind,
+    ProviderSkip,
+)
 from lead_finder_agent.search.registry import (
     ProviderRegistry,
     available_providers,
@@ -11,6 +16,8 @@ from lead_finder_agent.search.multi import MultiProviderSearch
 
 __all__ = [
     "BaseSearchProvider",
+    "ProviderError",
+    "ProviderErrorKind",
     "ProviderSkip",
     "ProviderRegistry",
     "register_provider",

@@ -399,3 +399,200 @@ class TestLocalizedCliWorkflow:
         shown = capsys.readouterr().out
         assert "Al Bahr Seafood Restaurant" in shown
         assert "Aden" in shown
+
+
+class TestGooglePlacesEndToEnd:
+    """The real discovery provider, wired through the whole pipeline.
+
+    Only the network transport is faked; the provider, normalizer, scoring,
+    storage and CLI are the real implementations.
+    """
+
+    def _provider(self, transport, **config):
+        from lead_finder_agent.search.providers.google_places import GooglePlacesProvider
+
+        config.setdefault("api_key", "fake-key")
+        config["client"] = transport.client()
+        return GooglePlacesProvider(config)
+
+    def test_places_to_storage_flow(self, fake_transport, tmp_path: Path):
+        from tests.conftest import google_page, google_place
+
+        fake_transport.add(
+            "places:searchText",
+            body=json.dumps(
+                google_page(
+                    [
+                        google_place(
+                            "gp-1", "Aden Fish House", nationalPhoneNumber="+967 1 111 1111"
+                        ),
+                        google_place(
+                            "gp-2", "Aden Bakery", nationalPhoneNumber="+967 2 222 2222"
+                        ),
+                    ]
+                )
+            ),
+        )
+
+        repo = SQLiteLeadRepository(tmp_path / "gp.db")
+        result = LeadFinderPipeline(
+            providers=[self._provider(fake_transport)],
+            repository=repo,
+            check_websites=False,
+        ).run(
+            SearchQuery(city="Aden", country="Yemen", business_type="restaurants", limit=20)
+        )
+
+        assert result.count == 2
+        assert repo.count() == 2
+        stored = {lead.business_name: lead for lead in repo.find(LeadFilter(city="Aden"))}
+        assert set(stored) == {"Aden Fish House", "Aden Bakery"}
+
+        lead = stored["Aden Fish House"]
+        assert lead.source == "google_places"
+        assert lead.country == "Yemen"
+        assert lead.latitude == pytest.approx(12.7855)
+        assert lead.phone
+        assert lead.source_url.startswith("https://maps.google.com/")
+        repo.close()
+
+    def test_cli_search_with_provider(self, fake_transport, tmp_path: Path, monkeypatch):
+        """The documented CLI example, backed by mocked provider data."""
+        from tests.conftest import google_page, google_place
+
+        fake_transport.add(
+            "places:searchText",
+            body=json.dumps(google_page([google_place("gp-1", "Aden Fish House")])),
+        )
+        monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "fake-key")
+        monkeypatch.setenv("LEAD_FINDER_PROVIDERS", "google_places")
+
+        db_path = tmp_path / "cli-gp.db"
+        # Patch the HTTP client the provider builds, so nothing touches the
+        # network while the real CLI path is exercised.
+        from lead_finder_agent.search.providers import google_places as module
+
+        original_init = module.GooglePlacesProvider.__init__
+
+        def patched_init(self, config=None):
+            config = dict(config or {})
+            config["client"] = fake_transport.client()
+            original_init(self, config)
+
+        monkeypatch.setattr(module.GooglePlacesProvider, "__init__", patched_init)
+
+        code = main(
+            [
+                "--db", str(db_path), "search",
+                "--country", "Yemen", "--city", "Aden",
+                "--type", "restaurants", "--limit", "20",
+            ]
+        )
+        assert code == 0
+
+        repo = SQLiteLeadRepository(db_path)
+        names = {lead.business_name for lead in repo.find(LeadFilter(city="Aden"))}
+        assert "Aden Fish House" in names
+        repo.close()
+
+    def test_provider_is_not_location_specific(self, fake_transport, tmp_path: Path):
+        """A second, unrelated country/city proves nothing is hard-coded.
+
+        The provider receives the location from the caller, so Lisbon behaves
+        exactly like Aden with no code change.
+        """
+        from tests.conftest import google_page, google_place
+
+        fake_transport.add(
+            "places:searchText",
+            body=json.dumps(
+                google_page(
+                    [google_place("pt-1", "Lisboa Bakery", city="Lisbon", country="Portugal")]
+                )
+            ),
+        )
+
+        repo = SQLiteLeadRepository(tmp_path / "pt.db")
+        result = LeadFinderPipeline(
+            providers=[self._provider(fake_transport)],
+            repository=repo,
+            check_websites=False,
+        ).run(
+            SearchQuery(city="Lisbon", country="Portugal", business_type="bakeries", limit=20)
+        )
+
+        assert result.count == 1
+        stored = repo.find(LeadFilter(city="Lisbon"))
+        assert len(stored) == 1
+        assert stored[0].country == "Portugal"
+        assert stored[0].city == "Lisbon"
+        # The request really carried the caller's location, not a default.
+        sent = json.loads(fake_transport.requests[-1]["data"])
+        assert sent["textQuery"] == "bakeries in Lisbon, Portugal"
+        repo.close()
+
+    def test_limit_is_respected_through_the_pipeline(self, fake_transport, tmp_path: Path):
+        from tests.conftest import google_page, google_place
+
+        # Names and phones are deliberately distinct: the pipeline's fuzzy
+        # de-duplication would otherwise merge near-identical sample records,
+        # which is correct behaviour but not what this test is measuring.
+        names = ["Alpha Traders", "Bravo Motors", "Charlie Textiles", "Delta Foods"]
+        fake_transport.add(
+            "places:searchText",
+            body=json.dumps(
+                google_page(
+                    [
+                        google_place(f"gp-{i}", name, nationalPhoneNumber=f"+967 3 000 {i}{i}{i}{i}")
+                        for i, name in enumerate(names)
+                    ]
+                )
+            ),
+        )
+
+        repo = SQLiteLeadRepository(tmp_path / "limit.db")
+        result = LeadFinderPipeline(
+            providers=[self._provider(fake_transport)],
+            repository=repo,
+            check_websites=False,
+        ).run(SearchQuery(city="Aden", country="Yemen", business_type="shops", limit=3))
+
+        assert result.count == 3
+        assert repo.count() == 3
+        repo.close()
+
+    def test_missing_key_does_not_break_the_run(self, fake_transport, tmp_path: Path, monkeypatch):
+        """A provider without a credential is skipped; others still deliver."""
+        monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+
+        from lead_finder_agent.search.providers.google_places import GooglePlacesProvider
+
+        repo = SQLiteLeadRepository(tmp_path / "skip.db")
+        result = LeadFinderPipeline(
+            providers=[GooglePlacesProvider({}), SampleProvider()],
+            repository=repo,
+            check_websites=False,
+        ).run(SearchQuery(city="Aden", country="Yemen", business_type="restaurants", limit=20))
+
+        assert result.count >= 1  # the sample provider still answered
+        google_response = result.search_result.responses[0]
+        assert google_response.error is None
+        assert google_response.skipped_reason is not None
+        assert "GOOGLE_PLACES_API_KEY" in google_response.skipped_reason
+        repo.close()
+
+    def test_rate_limit_is_isolated_and_reported(self, fake_transport, tmp_path: Path):
+        fake_transport.add("places:searchText", status=429, body="{}")
+
+        repo = SQLiteLeadRepository(tmp_path / "rate.db")
+        result = LeadFinderPipeline(
+            providers=[self._provider(fake_transport), SampleProvider()],
+            repository=repo,
+            check_websites=False,
+        ).run(SearchQuery(city="Aden", country="Yemen", business_type="restaurants", limit=20))
+
+        google_response = result.search_result.responses[0]
+        assert google_response.error_kind == "rate_limited"
+        # The failure is contained: the run still succeeds via the other provider.
+        assert result.count >= 1
+        repo.close()

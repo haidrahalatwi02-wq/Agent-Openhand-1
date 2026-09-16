@@ -52,6 +52,7 @@ packages = [
   "lead_finder_agent.models",
   "lead_finder_agent.scoring",
   "lead_finder_agent.search",
+  "lead_finder_agent.search.providers",
   "lead_finder_agent.storage",
   "lead_finder_agent.utils",
 ]
