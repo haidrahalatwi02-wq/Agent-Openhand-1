@@ -185,6 +185,29 @@ so the run can report how many calls it cost, and stop as soon as you have
 `query.limit` results. See
 `lead_finder_agent/search/providers/google_places.py` for a worked example.
 
+### What a provider must supply for merging
+
+The merge layer is provider-agnostic: a new source needs no changes to
+`search/multi.py`, `extraction/deduplicator.py` or `models/lead.py`. Two things
+make merging work well, though:
+
+- **`source_id`** - the provider's own stable id for the record. It becomes the
+  `dedupe_key` within that provider and is stored in `provider_ids[<provider>]`.
+  Ids are namespaced per provider and never compared across providers, so the
+  value only has to be unique inside your source.
+- **Public contact and location fields** - `phone`, `website_url`, `address`,
+  `latitude`/`longitude`, `city`. These are the independent signals used to
+  recognise the same business from two providers; the more of them you return,
+  the better the cross-provider match, and the lower the chance of a
+  false-positive merge.
+
+Two providers describing one business are merged into a single lead that keeps
+the useful data from both and lists every provider in `sources`. Your provider's
+values are never overwritten by an empty one from another source.
+
+If your provider has no stable id, the fallback key is
+`name + city + phone`, so supply as many of those as you have.
+
 ### The provider contract
 
 | Member | Purpose |

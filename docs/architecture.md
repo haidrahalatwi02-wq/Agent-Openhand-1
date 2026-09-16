@@ -55,24 +55,28 @@ stage without reimplementing the run.
 `ProviderResponse` objects. A provider that raises `ProviderError` is captured as
 a classified error response (`error_kind`); one that cannot run (missing key,
 unreachable service) returns a `skipped_reason`. Either way the other providers
-still run. The result is capped at `SearchQuery.limit`. Providers that page
-through an upstream API report how many calls they made via `pages_fetched`.
+still run. Providers that page through an upstream API report how many calls
+they made via `pages_fetched`. The search stage does *not* apply
+`SearchQuery.limit`: it sees raw records and cannot tell which are the same
+business, so the cap is applied later. Each provider is asked for the full
+`limit` and is expected to bound itself internally.
 
 **Normalize.** `LeadNormalizer` applies an alias table, because every source
 names things differently (`name`, `business_name`, `title`; `category`, `type`,
 `amenity`). It cleans phones, lowercases emails, normalizes URLs, splits social
 links out of website fields, and drops known-forbidden personal fields.
 
-**Deduplicate.** Two mechanisms:
+Normalization for *display* and normalization for *comparison* are separate.
+The normalizer keeps the provider's own wording on the lead (a name stays
+`AL Bahr  Restaurant` only if that is what the provider said); comparison
+helpers in `utils/text.py` reduce a copy to a comparable form and never write
+back.
 
-- Exact: `Lead.dedupe_key`, derived from the source id when present, otherwise
-  from normalized name + city + phone. This is the key storage upserts on.
-- Fuzzy: leads are bucketed by the first alphanumerics of their name, then
-  compared with `difflib.SequenceMatcher` inside the same bucket. Same city and
-  a high ratio merges them; an identical phone merges regardless of name.
-
-Merging keeps the richest value for each field, so a later, more complete record
-enriches the earlier one instead of blanking it.
+**Merge and deduplicate.** See [merging multiple providers](#merging-multiple-providers)
+below. Ordering is deterministic: survivors keep the position they were first
+seen in, and a merge never moves a record. The `limit` is applied *after* this
+stage, so duplicates in an earlier provider cannot consume the budget and starve
+a later one.
 
 **Website check.** See [the checker module](#website-checker) below.
 
@@ -86,6 +90,105 @@ a human-readable reason.
 preserves existing non-empty values when the incoming record is blank. Re-running
 a search therefore refreshes and enriches data rather than duplicating or
 erasing it.
+
+## Merging multiple providers
+
+When several providers answer, their records are unified into one result set:
+
+```
+Google Places ──┐
+                ├──> normalize ──> merge ──> de-duplicate ──> results
+OpenStreetMap ──┘
+```
+
+The layer is provider-agnostic. `search/multi.py` only fans out and aggregates;
+`extraction/normalizer.py` cleans each record; `extraction/deduplicator.py`
+decides identity; `models/lead.py` owns the merge. A new provider such as
+Foursquare or Yelp needs no change to any of them - it only has to return
+records with a name, and ideally a `source_id`.
+
+### Identity
+
+`Lead.dedupe_key` is the fast path:
+
+```
+if source_id present:  sha1(f"{source}:{source_id}")[:16]
+else:                  sha1(name|city|phone_normalized)[:16]
+```
+
+Provider ids are namespaced by provider, and ids from different providers are
+never compared. A Google place id and an OSM element id are unrelated values
+that could collide by accident; treating them as equal would be a silent data
+loss.
+
+### Cross-provider matching
+
+The same business is often listed twice with different detail, so a second,
+signal-based pass runs. It is deliberately hard to satisfy, because merging two
+*different* businesses loses a lead, and that is worse than showing one twice.
+
+1. **Conflicting contact details veto the match.** If both records have a phone
+   and the numbers differ, or both have a website on a different domain, they
+   are different businesses. This is what separates two same-named branches.
+2. **Tier 1 - close names.** With name similarity >= 0.90, any one independent
+   agreement confirms: the same phone, the same website domain, the same city,
+   or a near-identical address. Without a city on either record, an identical
+   name at the same coordinates also confirms.
+3. **Tier 2 - loosely similar names** (>= 0.60, e.g. a trading name against a
+   legal one). This band is where false positives live, so it additionally
+   requires a shared phone *or* website and the same city.
+4. **Coordinates are a guard, not a trigger.** Two records further apart than
+   `location_conflict_tolerance` (~5.5 km) are kept apart whatever their names
+   say - two branches of one chain in one city.
+
+A name match alone is never sufficient. Two businesses called "City Cafe" in
+different cities, or "Al Noor Restaurant" and "Al Noor Supermarket", stay
+separate. Sharing a website is **not** treated as conclusive on its own:
+franchises, chains and shared hosting routinely place unrelated businesses on
+one domain, so a shared domain only *corroborates* a name match.
+
+### Field merge
+
+`merge_leads` fills gaps and never overwrites:
+
+- A field that already holds a value is kept; only an empty one is filled.
+- A provider's valid value is never replaced by `None`, `""`, `0` or `[]`.
+- Lists and maps are unioned (`categories`, `social_links`, `raw`).
+- The richer record is chosen as the base, so more information survives.
+
+```
+Google:  name="ABC Restaurant"  phone="+967..."  website=missing
+OSM:     name="ABC Restaurant"  phone=missing   website="https://example.com"
+Result:  name="ABC Restaurant"  phone="+967..."  website="https://example.com"
+```
+
+Contradictory values are not blended: the existing value wins, so a merge can
+never lose data or invent a value neither provider supplied.
+
+### Source tracking
+
+A merged lead records every provider that found it, so provenance survives the
+merge:
+
+| Field | Meaning |
+| --- | --- |
+| `source` | The primary provider, used for attribution and storage indexes |
+| `sources` | Every provider that reported this business |
+| `provider_ids` | Provider name → that provider's own stable id |
+| `source_urls` | Provider name → that provider's public record URL |
+
+`provider_ids` and `source_urls` are keyed by provider precisely so ids from
+different sources never mix.
+
+### Result limits
+
+The limit is applied once, after de-duplication, so the user gets the number of
+*distinct* businesses requested. Applying it in the search stage would count
+duplicates against the budget: if the first provider returned its limit in
+records and two were duplicates, the second provider would be asked for fewer
+results than there were slots left, silently costing a unique lead. The search
+stage therefore asks every provider for the full limit and the pipeline trims
+the merged set.
 
 ## Website checker
 

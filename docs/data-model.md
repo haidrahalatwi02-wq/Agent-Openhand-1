@@ -45,8 +45,11 @@ source cannot smuggle personal data in through a raw payload. See
 | `address` | str \| None | Public street address |
 | `phone` | str \| None | Public business phone, cleaned to digits and `+` |
 | `email` | str \| None | Public business email, lowercased; only if already public |
-| `source` | str \| None | Provider that supplied the record, e.g. `osm` |
+| `source` | str \| None | Primary provider that supplied the record, e.g. `osm` |
 | `source_url` | str \| None | Link back to the original public record |
+| `sources` | list[str] | Every provider that reported this business, after merging |
+| `provider_ids` | dict | Provider name → that provider's own stable id |
+| `source_urls` | dict | Provider name → that provider's public record URL |
 | `website_url` | str \| None | Website, normalized; social links are moved to `social_links` |
 | `website_status` | enum | `website_exists`, `website_not_found`, `website_unreachable`, `website_unknown`, `website_not_checked` |
 | `website_quality` | enum | `good`, `weak`, `social_only`, `unknown` |
@@ -69,9 +72,10 @@ source cannot smuggle personal data in through a raw payload. See
 
 All timestamps are timezone-aware UTC.
 
-## Deduplication key
+## Deduplication and cross-provider matching
 
-`dedupe_key` decides whether two records are the same business.
+`dedupe_key` decides whether two records from the **same** provider are the same
+business:
 
 ```
 if source_id present:  sha1(f"{source}:{source_id}")[:16]
@@ -80,13 +84,45 @@ else:                  sha1(name|city|phone_normalized)[:16]
 
 - `name` is lowercased with punctuation collapsed.
 - `phone` keeps digits only, so `+967 71 234-5678` and `967712345678` match.
+- Provider ids are namespaced by provider. Ids from different providers are
+  never compared: a Google place id and an OSM element id are unrelated values.
 - Exact repetitions collapse at the storage layer through a unique index on
   `dedupe_key`.
-- Near-identical names in the same city are collapsed by the fuzzy pass in
-  `Deduplicator`, not by the key.
 
-When two records merge, each field keeps its richest available value. An empty
-value never overwrites a populated one.
+The same business listed by **two different providers** rarely shares a
+`dedupe_key`, so `Deduplicator` runs a signal-based pass. It is conservative by
+design - merging two different businesses loses a lead - so a name match alone
+is never enough:
+
+1. **Conflicting contact details veto the match.** Different phones, or
+   websites on different domains, mean different businesses.
+2. **Close names** (similarity >= 0.90) are confirmed by any one of: same
+   phone, same website domain, same city, or a near-identical address.
+3. **Loosely similar names** (>= 0.60, e.g. a trading name vs a legal name)
+   additionally require a shared phone or website *and* the same city.
+4. **Coordinates are a guard**: two records further apart than
+   `location_conflict_tolerance` stay apart whatever their names say.
+
+A shared website is *not* conclusive by itself: chains and shared hosting put
+unrelated businesses on one domain.
+
+### Normalization for comparison
+
+Comparison helpers in `utils/text.py` reduce a *copy* of a value; they never
+rewrite what the provider reported. Applied before comparing: whitespace
+collapse, case folding, punctuation to spaces (so `Al-Bahr` == `Al Bahr`),
+Arabic orthographic folding (`أ` → `ا`, diacritics dropped), Arabic/Latin legal
+suffixes stripped (`LLC`, `Co.`, `مؤسسة`), address noise words dropped
+(`Building`, `Street`, `شارع`), phone to digits, and URLs to a registrable
+domain.
+
+### Merging
+
+When two records merge, each field keeps its richest available value and an
+empty value never overwrites a populated one. A provider's valid value is never
+replaced by `None`, `""`, `0` or `[]`. Provenance is additive: `sources` is the
+union of both providers, `provider_ids` and `source_urls` keep one entry per
+provider, and a secondary id never displaces the primary's own.
 
 ## Status semantics
 

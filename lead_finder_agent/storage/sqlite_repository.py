@@ -24,7 +24,7 @@ from lead_finder_agent.utils.logging_utils import get_logger
 
 log = get_logger("storage.sqlite")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (
@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS leads (
     review_count        INTEGER,
     rating              REAL,
     categories          TEXT NOT NULL DEFAULT '[]',
+    sources             TEXT NOT NULL DEFAULT '[]',
+    provider_ids        TEXT NOT NULL DEFAULT '{}',
+    source_urls         TEXT NOT NULL DEFAULT '{}',
     raw                 TEXT NOT NULL DEFAULT '{}',
     lead_score          INTEGER NOT NULL DEFAULT 0,
     score_confidence    TEXT NOT NULL DEFAULT 'low',
@@ -73,7 +76,31 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 );
 """
 
-_JSON_FIELDS = ("social_links", "categories", "raw", "score_reason", "score_breakdown")
+#: JSON columns whose empty value is a list.
+_JSON_LIST_FIELDS = ("categories", "score_reason", "sources")
+
+#: Every JSON-encoded column. Empty value is ``[]`` for the list fields above
+#: and ``{}`` for the rest.
+_JSON_FIELDS = (
+    "social_links",
+    "categories",
+    "sources",
+    "provider_ids",
+    "source_urls",
+    "raw",
+    "score_reason",
+    "score_breakdown",
+)
+
+#: Columns added after the first release. Existing databases are upgraded in
+#: place by :meth:`SQLiteLeadRepository._migrate`, because ``CREATE TABLE IF
+#: NOT EXISTS`` leaves an already-created table untouched.
+_ADDED_COLUMNS = {
+    "sources": "TEXT NOT NULL DEFAULT '[]'",
+    "provider_ids": "TEXT NOT NULL DEFAULT '{}'",
+    "source_urls": "TEXT NOT NULL DEFAULT '{}'",
+}
+
 _COLUMNS = (
     "id",
     "dedupe_key",
@@ -98,6 +125,9 @@ _COLUMNS = (
     "review_count",
     "rating",
     "categories",
+    "sources",
+    "provider_ids",
+    "source_urls",
     "raw",
     "lead_score",
     "score_confidence",
@@ -132,11 +162,27 @@ class SQLiteLeadRepository(BaseLeadRepository):
 
     def _init_schema(self) -> None:
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.execute(
             "INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('version', ?)",
             (str(SCHEMA_VERSION),),
         )
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after a database was first created.
+
+        ``CREATE TABLE IF NOT EXISTS`` is a no-op on an existing table, so a
+        database written by an earlier version would otherwise be missing the
+        provenance columns and every read would fail.
+        """
+        existing = {
+            row["name"] for row in self._conn.execute("PRAGMA table_info(leads)").fetchall()
+        }
+        for column, definition in _ADDED_COLUMNS.items():
+            if column not in existing:
+                log.info("Adding missing column %s to leads", column)
+                self._conn.execute(f"ALTER TABLE leads ADD COLUMN {column} {definition}")
 
     @contextmanager
     def _cursor(self) -> Iterator[sqlite3.Cursor]:
@@ -165,7 +211,9 @@ class SQLiteLeadRepository(BaseLeadRepository):
         for column in _COLUMNS:
             value = data.get(column)
             if column in _JSON_FIELDS:
-                value = json.dumps(value if value is not None else ({} if column != "categories" and column != "score_reason" else []), ensure_ascii=False)
+                if value is None:
+                    value = [] if column in _JSON_LIST_FIELDS else {}
+                value = json.dumps(value, ensure_ascii=False)
             row[column] = value
         if not row.get("id"):
             row["id"] = lead.dedupe_key
@@ -182,7 +230,7 @@ class SQLiteLeadRepository(BaseLeadRepository):
                 try:
                     data[column] = json.loads(raw)
                 except json.JSONDecodeError:
-                    data[column] = {} if column not in ("categories", "score_reason") else []
+                    data[column] = [] if column in _JSON_LIST_FIELDS else {}
         return Lead.from_dict(data)
 
     # -- writes ------------------------------------------------------------

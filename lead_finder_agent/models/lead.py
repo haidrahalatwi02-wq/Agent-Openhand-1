@@ -202,6 +202,17 @@ class Lead:
     discovered_at: Optional[datetime] = None
     last_checked_at: Optional[datetime] = None
     dedupe_key: Optional[str] = None
+    #: Every provider that reported this business. A merged record keeps the
+    #: whole list, so a lead discovered by both Google and OSM can say so
+    #: instead of silently attributing itself to whichever ran first.
+    sources: List[str] = field(default_factory=list)
+    #: Provider name -> that provider's own stable id, e.g.
+    #: ``{"google_places": "ChIJ...", "osm": "node/456"}``. Ids are never
+    #: compared across providers: an OSM node id and a Google place id are
+    #: unrelated namespaces that could otherwise collide by accident.
+    provider_ids: Dict[str, str] = field(default_factory=dict)
+    #: Provider name -> that provider's public record URL.
+    source_urls: Dict[str, str] = field(default_factory=dict)
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -213,10 +224,30 @@ class Lead:
         self.score_confidence = Confidence(self.score_confidence)
         self.priority = LeadPriority(self.priority)
         self.discovered_at = self.discovered_at or utcnow()
+        self._sync_provenance()
         if not self.dedupe_key:
             self.dedupe_key = self.compute_dedupe_key()
         if not self.id:
             self.id = self.dedupe_key
+
+    def _sync_provenance(self) -> None:
+        """Keep ``sources`` and the per-provider maps consistent with the record."""
+        self.sources = [s for s in (self.sources or []) if s]
+        if self.source and self.source not in self.sources:
+            self.sources.insert(0, self.source)
+        if not self.source and self.sources:
+            self.source = self.sources[0]
+
+        self.provider_ids = {k: str(v) for k, v in (self.provider_ids or {}).items() if v}
+        self.source_urls = {k: v for k, v in (self.source_urls or {}).items() if v}
+
+        source_id = str(self.raw.get("source_id") or "").strip()
+        if self.source and source_id:
+            # ``setdefault``: a value already recorded from an earlier merge is
+            # never replaced by this record's own id.
+            self.provider_ids.setdefault(self.source, source_id)
+        if self.source and self.source_url:
+            self.source_urls.setdefault(self.source, self.source_url)
 
     # -- identity ----------------------------------------------------------
 
@@ -284,6 +315,13 @@ class Lead:
             payload[key] = parse_datetime(payload.get(key))
         payload["social_links"] = dict(payload.get("social_links") or {})
         payload["raw"] = dict(payload.get("raw") or {})
+        payload["sources"] = [str(s) for s in (payload.get("sources") or []) if s]
+        payload["provider_ids"] = {
+            str(k): str(v) for k, v in (payload.get("provider_ids") or {}).items() if v
+        }
+        payload["source_urls"] = {
+            str(k): str(v) for k, v in (payload.get("source_urls") or {}).items() if v
+        }
         payload["score_reason"] = list(payload.get("score_reason") or [])
         payload["score_breakdown"] = {
             k: int(v) for k, v in (payload.get("score_breakdown") or {}).items()
@@ -343,12 +381,31 @@ def _filled_fields(lead: Lead) -> int:
 
 
 def merge_leads(primary: Lead, secondary: Lead) -> Lead:
-    """Merge two records for the same business into one richer lead."""
+    """Merge two records for the same business into one richer lead.
+
+    The rule is *fill gaps, never overwrite*: a field that already holds a value
+    is kept, and only an empty one is filled from the other record. Two
+    providers that disagree therefore keep the first non-empty answer rather
+    than one silently clobbering the other, and a merge can never lose data.
+
+    Provenance is additive: both providers stay in ``sources`` and both keep
+    their own ids, so the merged lead can still be traced back to every source
+    that reported it.
+    """
     if _filled_fields(secondary) > _filled_fields(primary):
         primary, secondary = secondary, primary
 
     for name in primary.__dataclass_fields__:
-        if name in {"raw", "social_links", "categories", "score_reason", "score_breakdown"}:
+        if name in {
+            "raw",
+            "social_links",
+            "categories",
+            "score_reason",
+            "score_breakdown",
+            "sources",
+            "provider_ids",
+            "source_urls",
+        }:
             continue
         current = getattr(primary, name)
         other = getattr(secondary, name)
@@ -359,6 +416,21 @@ def merge_leads(primary: Lead, secondary: Lead) -> Lead:
     primary.social_links = {**secondary.social_links, **primary.social_links}
     primary.categories = sorted(set(primary.categories) | set(secondary.categories))
     primary.last_checked_at = primary.last_checked_at or secondary.last_checked_at
+
+    # Provenance: union, order-stable, primary first.
+    merged_sources = list(primary.sources)
+    for source in secondary.sources or ([secondary.source] if secondary.source else []):
+        if source and source not in merged_sources:
+            merged_sources.append(source)
+    if primary.source and primary.source not in merged_sources:
+        merged_sources.insert(0, primary.source)
+    primary.sources = merged_sources
+
+    # Ids stay per provider: a secondary id never displaces the primary's own.
+    for provider, provider_id in (secondary.provider_ids or {}).items():
+        primary.provider_ids.setdefault(provider, provider_id)
+    for provider, url in (secondary.source_urls or {}).items():
+        primary.source_urls.setdefault(provider, url)
     return primary
 
 

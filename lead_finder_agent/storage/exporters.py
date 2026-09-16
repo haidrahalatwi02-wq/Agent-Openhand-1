@@ -25,6 +25,8 @@ CSV_COLUMNS: Sequence[str] = (
     "email",
     "source",
     "source_url",
+    "sources",
+    "provider_ids",
     "website_url",
     "website_status",
     "website_quality",
@@ -41,7 +43,16 @@ CSV_COLUMNS: Sequence[str] = (
 
 def _flatten(lead: Lead) -> Dict[str, Any]:
     data = lead.to_dict()
-    return {column: data.get(column) for column in CSV_COLUMNS}
+    row = {column: data.get(column) for column in CSV_COLUMNS}
+    # Spreadsheets and shell tools read these far more easily as text than as
+    # the Python repr a nested list or dict would produce.
+    sources = row.get("sources")
+    if isinstance(sources, (list, tuple)):
+        row["sources"] = ",".join(str(s) for s in sources)
+    provider_ids = row.get("provider_ids")
+    if isinstance(provider_ids, dict):
+        row["provider_ids"] = ";".join(f"{k}={v}" for k, v in provider_ids.items())
+    return row
 
 
 def export_json(

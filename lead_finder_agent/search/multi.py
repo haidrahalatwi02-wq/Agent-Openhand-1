@@ -14,9 +14,19 @@ log = get_logger("search.multi")
 class MultiProviderSearch:
     """Fans a query out to every configured provider.
 
-    Results are concatenated into a single raw list; per-provider errors are
-    preserved on :class:`SearchResult` so the caller can report partial
-    failures without losing the successful results.
+    Results are concatenated into a single raw list in provider order; per
+    provider errors are preserved on :class:`SearchResult` so the caller can
+    report partial failures without losing the successful results.
+
+    **Limit handling.** Every provider is asked for the full ``limit``, and the
+    final cap is applied by the caller *after* de-duplication. The reason is
+    that this stage sees raw records and cannot know which of them are the same
+    business: spending a shared budget on earlier providers would let their
+    duplicates starve the providers that follow, silently costing unique leads.
+    Asking each provider for the limit over-fetches slightly, which is the
+    cheaper of the two mistakes; the providers cap themselves internally, and
+    :class:`~lead_finder_agent.core.pipeline.LeadFinderPipeline` trims the
+    merged result back to ``limit``.
     """
 
     def __init__(self, providers: Sequence[BaseSearchProvider]) -> None:
@@ -26,30 +36,13 @@ class MultiProviderSearch:
         """Query every provider and collect the raw records."""
         responses: List[ProviderResponse] = []
         raw_leads: List[dict] = []
-        remaining = query.limit
 
         for provider in self.providers:
-            provider_query = query
-            if remaining <= 0:
-                break
-            # Ask each provider for at most what we still need.
-            if provider is not self.providers[0] or len(self.providers) == 1:
-                provider_query = SearchQuery(
-                    business_type=query.business_type,
-                    keywords=list(query.keywords),
-                    city=query.city,
-                    country=query.country,
-                    limit=remaining,
-                    providers=query.providers,
-                    language=query.language,
-                )
-
-            response = provider.search(provider_query)
+            response = provider.search(self._provider_query(query))
             responses.append(response)
 
             if response.ok:
                 raw_leads.extend(response.leads)
-                remaining = query.limit - len(raw_leads)
             if response.error:
                 log.warning("Provider %s error: %s", provider.name, response.error)
             elif response.skipped_reason:
@@ -59,6 +52,24 @@ class MultiProviderSearch:
                 log.info("Provider %s skipped: %s", provider.name, response.skipped_reason)
 
         return SearchResult(query=query, leads=raw_leads, responses=responses)
+
+    @staticmethod
+    def _provider_query(query: SearchQuery) -> SearchQuery:
+        """A per-provider copy of ``query``.
+
+        A copy is passed rather than the original so a provider cannot mutate
+        the shared query, and so every provider sees the same location and
+        limit.
+        """
+        return SearchQuery(
+            business_type=query.business_type,
+            keywords=list(query.keywords),
+            city=query.city,
+            country=query.country,
+            limit=query.limit,
+            providers=query.providers,
+            language=query.language,
+        )
 
     def __len__(self) -> int:
         return len(self.providers)

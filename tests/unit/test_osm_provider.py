@@ -787,7 +787,13 @@ class TestProviderContract:
         assert result.responses[0].error is not None
         assert result.responses[1].ok
 
-    def test_results_are_capped_across_providers(self, fake_transport):
+    def test_raw_results_are_not_capped_before_deduplication(self, fake_transport):
+        """The search stage must not spend the limit on the first provider.
+
+        Capping here counted raw records, so duplicates from an earlier
+        provider consumed the budget and starved later providers of unique
+        leads. The cap now belongs to the pipeline, after de-duplication.
+        """
         from lead_finder_agent.search.providers.sample import SampleProvider
 
         elements = [osm_element(i, name=f"OSM {i}", tags={"shop": "bakery"}) for i in range(10)]
@@ -796,7 +802,10 @@ class TestProviderContract:
             SearchQuery(city="Aden", limit=3)
         )
 
-        assert len(result.leads) <= 3
+        # Every provider still answered in full; the cap is applied downstream.
+        assert len(result.responses) == 2
+        assert all(response.ok for response in result.responses)
+        assert len(result.leads) > 3
 
 
 # --------------------------------------------------------------------------- #

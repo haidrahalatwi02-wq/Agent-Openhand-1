@@ -211,10 +211,20 @@ class LeadFinderPipeline:
         return leads
 
     def deduplicate(self, leads: List[Lead], stats: PipelineStats) -> List[Lead]:
-        """Stage 3: collapse duplicate businesses."""
+        """Stage 3: collapse duplicate businesses.
+
+        The query limit is applied *here*, after duplicates are gone, so the
+        user gets the number of distinct businesses they asked for. Applying it
+        earlier would count duplicates against the budget and quietly return
+        fewer unique leads than requested.
+        """
         before = len(leads)
         unique = self.deduplicator.deduplicate(leads)
         stats.duplicates_removed = before - len(unique)
+
+        limit = getattr(stats.query, "limit", None)
+        if limit is not None and limit > 0 and len(unique) > limit:
+            unique = unique[:limit]
         return unique
 
     def check_website(self, leads: List[Lead], stats: PipelineStats) -> List[Lead]:
