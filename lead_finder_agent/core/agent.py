@@ -90,6 +90,11 @@ class AgentContext:
             "api_key_env": settings.google_places_api_key_env,
             "max_pages": settings.google_places_max_pages,
             "language_code": settings.google_places_language,
+            # OpenStreetMap / Overpass. Keyless: these only bound how hard the
+            # free community endpoints are asked to work.
+            "overpass_timeout": settings.osm_overpass_timeout,
+            "max_elements": settings.osm_max_elements,
+            "oversample": settings.osm_oversample,
         }
 
     def resolve_checker(self) -> BaseWebsiteChecker:

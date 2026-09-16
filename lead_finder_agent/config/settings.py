@@ -19,7 +19,17 @@ from lead_finder_agent.search.providers.google_places import (
     DEFAULT_ENDPOINT as DEFAULT_GOOGLE_PLACES_ENDPOINT,
 )
 from lead_finder_agent.utils.http import DEFAULT_USER_AGENT
-from lead_finder_agent.utils.text import parse_keywords, safe_int
+from lead_finder_agent.utils.text import parse_keywords, safe_float, safe_int
+
+# OpenStreetMap / Overpass tuning defaults. These are deliberately plain numbers
+# rather than imports from ``search.providers.osm``: the config layer must not
+# depend on the provider layer. Importing them here would create a cycle
+# (osm -> business_types -> config.loader -> config -> settings -> osm) that
+# breaks any program whose first import is the OSM provider. The provider keeps
+# the same values as its own fallbacks, so the two stay consistent.
+DEFAULT_OSM_OVERPASS_TIMEOUT = 25
+DEFAULT_OSM_MAX_ELEMENTS = 200
+DEFAULT_OSM_OVERSAMPLE = 1.0
 
 
 def _env(key: str, default: Optional[str] = None) -> Optional[str]:
@@ -83,6 +93,12 @@ class Settings:
     google_places_api_key_env: str = DEFAULT_GOOGLE_PLACES_API_KEY_ENV
     google_places_max_pages: int = 3
     google_places_language: Optional[str] = None
+    # --- OpenStreetMap / Overpass ---
+    # No credential exists for these services, so there is nothing secret here.
+    # These only bound how hard the free community endpoints are asked to work.
+    osm_overpass_timeout: int = DEFAULT_OSM_OVERPASS_TIMEOUT
+    osm_max_elements: int = DEFAULT_OSM_MAX_ELEMENTS
+    osm_oversample: float = DEFAULT_OSM_OVERSAMPLE
     extra: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -132,6 +148,30 @@ class Settings:
                 1, safe_int(get("LEAD_FINDER_GOOGLE_PLACES_MAX_PAGES", "3"), 3) or 3
             ),
             google_places_language=get("LEAD_FINDER_GOOGLE_PLACES_LANGUAGE"),
+            osm_overpass_timeout=max(
+                1,
+                safe_int(
+                    get("LEAD_FINDER_OSM_OVERPASS_TIMEOUT", str(DEFAULT_OSM_OVERPASS_TIMEOUT)),
+                    DEFAULT_OSM_OVERPASS_TIMEOUT,
+                )
+                or DEFAULT_OSM_OVERPASS_TIMEOUT,
+            ),
+            osm_max_elements=max(
+                1,
+                safe_int(
+                    get("LEAD_FINDER_OSM_MAX_ELEMENTS", str(DEFAULT_OSM_MAX_ELEMENTS)),
+                    DEFAULT_OSM_MAX_ELEMENTS,
+                )
+                or DEFAULT_OSM_MAX_ELEMENTS,
+            ),
+            osm_oversample=max(
+                1.0,
+                safe_float(
+                    get("LEAD_FINDER_OSM_OVERSAMPLE", str(DEFAULT_OSM_OVERSAMPLE)),
+                    DEFAULT_OSM_OVERSAMPLE,
+                )
+                or DEFAULT_OSM_OVERSAMPLE,
+            ),
         )
 
     def with_overrides(self, **kwargs: Any) -> "Settings":

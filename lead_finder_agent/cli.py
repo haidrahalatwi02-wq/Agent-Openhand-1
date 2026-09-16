@@ -207,7 +207,11 @@ def cmd_search(args: argparse.Namespace) -> int:
         for provider, error in result.errors.items():
             print(f"warning: provider {provider} failed: {error}", file=sys.stderr)
         for provider in result.stats.providers:
-            if provider.get("skipped_reason"):
+            # A failed provider already carries a skipped_reason (so the stats
+            # dict explains every non-delivery). Reporting it again here would
+            # print "failed" and "skipped" for the same provider, which reads as
+            # two different outcomes.
+            if provider.get("skipped_reason") and not provider.get("error"):
                 print(
                     f"note: provider {provider['provider']} skipped: {provider['skipped_reason']}",
                     file=sys.stderr,

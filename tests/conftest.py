@@ -21,6 +21,7 @@ from lead_finder_agent.models import (
     WebsiteQuality,
     WebsiteStatus,
 )
+from lead_finder_agent.search.providers.osm import reset_geocode_cache
 from lead_finder_agent.utils.http import HttpClient, HttpResponse
 
 
@@ -47,11 +48,22 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         "LEAD_FINDER_GOOGLE_PLACES_ENDPOINT",
         "LEAD_FINDER_GOOGLE_PLACES_MAX_PAGES",
         "LEAD_FINDER_GOOGLE_PLACES_LANGUAGE",
+        # OSM/Overpass tuning must not leak in either; a developer's real
+        # limits would change what the provider asks Overpass for.
+        "LEAD_FINDER_OSM_OVERPASS_TIMEOUT",
+        "LEAD_FINDER_OSM_MAX_ELEMENTS",
+        "LEAD_FINDER_OSM_OVERSAMPLE",
+        "LEAD_FINDER_OVERPASS_URL",
+        "LEAD_FINDER_NOMINATIM_URL",
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("LEAD_FINDER_DB_PATH", str(tmp_path / "test.db"))
     reset_settings()
+    # The OSM provider caches geocoded areas at module level to avoid hammering
+    # Nominatim. Without this, one test's Aden bbox would be reused by the next.
+    reset_geocode_cache()
     yield
+    reset_geocode_cache()
     reset_settings()
 
 
@@ -337,9 +349,77 @@ def json_response(payload: Any, status: int = 200) -> HttpResponse:
     return HttpResponse(status, json.dumps(payload), {"content-type": "application/json"})
 
 
+# --------------------------------------------------------------------------- #
+# OpenStreetMap / Overpass helpers
+# --------------------------------------------------------------------------- #
+
+#: Bounding boxes for the international locations used in tests. These are test
+#: data only: no country or city is hard-coded in the provider itself.
+NOMINATIM_AREAS: Dict[str, Dict[str, Any]] = {
+    "aden": {
+        "display_name": "Aden, Yemen",
+        "lat": "12.7855",
+        "lon": "45.0187",
+        "boundingbox": ["12.70", "12.90", "44.90", "45.10"],
+    },
+    "riyadh": {
+        "display_name": "Riyadh, Saudi Arabia",
+        "lat": "24.7136",
+        "lon": "46.6753",
+        "boundingbox": ["24.40", "24.95", "46.35", "47.00"],
+    },
+    "lisbon": {
+        "display_name": "Lisbon, Portugal",
+        "lat": "38.7223",
+        "lon": "-9.1393",
+        "boundingbox": ["38.68", "38.80", "-9.23", "-9.09"],
+    },
+}
+
+
+def nominatim_result(location: str) -> List[Dict[str, Any]]:
+    """A Nominatim geocoding response for a known test location."""
+    return [NOMINATIM_AREAS[location]]
+
+
+def osm_element(
+    element_id: int = 101,
+    element_type: str = "node",
+    name: Optional[str] = "Example Business",
+    tags: Optional[Dict[str, Any]] = None,
+    lat: Optional[float] = 12.7855,
+    lon: Optional[float] = 45.0187,
+    center: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """Build one Overpass element, mirroring the real JSON shape."""
+    merged: Dict[str, Any] = dict(tags or {})
+    if name is not None:
+        merged.setdefault("name", name)
+    element: Dict[str, Any] = {"type": element_type, "id": element_id, "tags": merged}
+    if lat is not None:
+        element["lat"] = lat
+    if lon is not None:
+        element["lon"] = lon
+    if center is not None:
+        element["center"] = center
+    return element
+
+
+def overpass_response(elements: List[Dict[str, Any]], remark: Optional[str] = None):
+    """An Overpass JSON response, optionally carrying a ``remark``."""
+    payload: Dict[str, Any] = {"version": 0.6, "elements": elements}
+    if remark is not None:
+        payload["remark"] = remark
+    return payload
+
+
 __all__ = [
     "FakeTransport",
     "json_response",
     "google_place",
     "google_page",
+    "NOMINATIM_AREAS",
+    "nominatim_result",
+    "osm_element",
+    "overpass_response",
 ]

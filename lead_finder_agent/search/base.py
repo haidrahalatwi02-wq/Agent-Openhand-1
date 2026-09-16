@@ -136,14 +136,21 @@ class BaseSearchProvider(abc.ABC):
                 elapsed_seconds=time.perf_counter() - started,
             )
         except ProviderError as exc:
-            # A classified failure: keep the kind so callers can tell a rate
-            # limit from a bad key without parsing the message.
+            # A classified failure. It is recorded twice, on purpose:
+            #   * ``error``/``error_kind`` are the machine-readable taxonomy,
+            #     and drive ``ok``, ``errors`` and ``failed_stages``;
+            #   * ``skipped_reason`` keeps the older "this provider did not
+            #     deliver, and here is why" contract that the CLI, the stats
+            #     dict and downstream callers already read, so a provider that
+            #     fails is still explained there instead of merely going quiet.
             log.warning("Provider %s failed (%s): %s", self.name, exc.kind, exc)
+            message = f"{exc.kind}: {exc}"
             return ProviderResponse(
                 provider=self.name,
                 kind=self.kind,
-                error=f"{exc.kind}: {exc}",
+                error=message,
                 error_kind=str(exc.kind),
+                skipped_reason=message,
                 elapsed_seconds=time.perf_counter() - started,
                 pages_fetched=self._pages_fetched,
             )

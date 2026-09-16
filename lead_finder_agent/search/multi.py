@@ -50,10 +50,13 @@ class MultiProviderSearch:
             if response.ok:
                 raw_leads.extend(response.leads)
                 remaining = query.limit - len(raw_leads)
-            if response.skipped_reason:
-                log.info("Provider %s skipped: %s", provider.name, response.skipped_reason)
             if response.error:
                 log.warning("Provider %s error: %s", provider.name, response.error)
+            elif response.skipped_reason:
+                # Only reached when there is no error: a failed provider already
+                # carries a skip reason, and logging both would report the same
+                # event twice at two different severities.
+                log.info("Provider %s skipped: %s", provider.name, response.skipped_reason)
 
         return SearchResult(query=query, leads=raw_leads, responses=responses)
 

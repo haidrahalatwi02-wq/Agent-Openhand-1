@@ -80,6 +80,16 @@ def safe_int(value: Any, default: Optional[int] = None) -> Optional[int]:
         return default
 
 
+def safe_float(value: Any, default: Optional[float] = None) -> Optional[float]:
+    """Best-effort float conversion."""
+    if value is None or value == "":
+        return default
+    try:
+        return float(str(value).replace(",", "").strip())
+    except (TypeError, ValueError):
+        return default
+
+
 def extract_domain(url: Optional[str]) -> Optional[str]:
     """Lowercase hostname of a URL, without ``www.``."""
     if not url:
@@ -116,6 +126,7 @@ __all__ = [
     "slugify",
     "parse_keywords",
     "safe_int",
+    "safe_float",
     "extract_domain",
     "registrable_domain",
 ]
