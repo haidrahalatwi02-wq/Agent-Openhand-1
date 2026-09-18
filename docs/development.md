@@ -35,6 +35,10 @@ python -m pytest --cov=lead_finder_agent --cov-report=term-missing
 | `tests/unit/` | One module per component |
 | `tests/integration/` | Whole-system flows across real components |
 
+The Agent Manager's behaviour lives in `tests/unit/test_agent_manager.py`, which
+also runs the real Lead Finder through the manager over a real SQLite repository
+with only the network faked.
+
 ### Testing principles
 
 **No network, ever, in the default run.** The only faked boundary is HTTP. Real
@@ -153,27 +157,55 @@ context = AgentContext()
 WebsiteAnalyzerAgent(context).run(limit=10)
 ```
 
-Then, when you want them coordinated, add a manager:
+Then register it with the manager, which coordinates agents by name:
 
 ```python
-class AgentManager:
-    def __init__(self, context):
-        self.context = context
-        self._agents = {}
+from lead_finder_agent.core import AgentManager
 
-    def register(self, agent):
-        self._agents[agent.name] = agent
-        return agent
-
-    def get(self, name):
-        return self._agents[name]
-
-
-manager = AgentManager(AgentContext())
-manager.register(LeadFinderAgent(manager.context))
+manager = AgentManager().register_default_agents()
 manager.register(WebsiteAnalyzerAgent(manager.context))
-manager.get("lead_finder").run(city="Aden", limit=20)
+manager.run("website_analyzer", limit=10)
 ```
+
+`AgentManager` gives every agent it registers the *same* `AgentContext`, so a
+search and a later agent share one repository. The manager is what lets agents
+stay independent: they coordinate through the context and the stored data, never
+by importing each other.
+
+```python
+manager.names()                       # registered agent names, sorted
+manager.get("lead_finder")            # the instance
+manager.run("lead_finder", city="Aden", limit=20)
+
+# Fan out. A failing agent is reported, not raised, so the others still run.
+for outcome in manager.run_all(
+    ["lead_finder", "website_analyzer"],
+    kwargs_by_agent={"website_analyzer": {"limit": 20}},
+    city="Aden",
+    limit=20,
+):
+    if outcome.ok:
+        ...
+    else:
+        print(outcome.agent, "failed:", outcome.error)
+```
+
+Agents do not share a signature, so `run_all` takes shared `kwargs` plus an
+optional `kwargs_by_agent` mapping to give one agent different arguments.
+Without it, fanning a single keyword set across agents with unrelated `run()`
+signatures would fail for the wrong reason — the agent would be reported as
+broken when the caller simply passed an argument it does not accept.
+
+Two behaviours to rely on:
+
+- `register()` raises on a duplicate name. Pass `replace=True` to swap one
+  deliberately — an accidental replacement should not pass unnoticed.
+- `run()` propagates an exception; `run_isolated()` and `run_all()` convert it
+  into an `AgentRunResult(ok=False, error=...)`. Use the latter for multi-agent
+  work, where a partial result beats no result.
+
+`lead-finder agents` lists the registered set, so a new agent is visible from the
+CLI without touching `cli.py`.
 
 Rules for new agents:
 
@@ -181,6 +213,8 @@ Rules for new agents:
 2. Do one thing. Coordinate through the context and the stored data.
 3. Keep network access behind an injectable seam so tests stay offline.
 4. Do not import another agent directly.
+5. Register against the shared context (`AgentManager(context)`), not a fresh
+   one, or the agent will write to a different database than the Lead Finder.
 
 ## Adding a provider
 

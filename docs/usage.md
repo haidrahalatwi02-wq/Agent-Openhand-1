@@ -230,6 +230,35 @@ Available search providers:
 Providers that need a missing environment variable are marked `unavailable`
 with the reason, instead of failing at search time.
 
+## `agents`
+
+```bash
+lead-finder agents
+```
+
+```
+Registered agents:
+  lead_finder  Discover local businesses, check their web presence and score leads
+```
+
+Lists every agent the Agent Manager knows about, so a newly added agent is
+visible from the CLI without editing `cli.py`. `--json` gives the same data
+machine-readably:
+
+```bash
+lead-finder agents --json
+```
+
+The manager is how agents are coordinated in code; see
+[development.md](development.md#adding-a-new-agent). It starts work by name:
+
+```python
+from lead_finder_agent.core import AgentManager
+
+manager = AgentManager().register_default_agents()
+manager.run("lead_finder", city="Aden", limit=20)
+```
+
 ## A complete workflow
 
 ```bash

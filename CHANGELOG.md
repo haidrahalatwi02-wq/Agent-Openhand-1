@@ -77,11 +77,16 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Scoring
 - Declarative, data-driven rule engine: score, confidence, priority and
   human-readable reasons.
-- 18 default rules covering missing and weak websites, business activity,
+- 22 default rules covering missing and weak websites, business activity,
   contactability and public rating/review signals.
 - Configurable thresholds, confidence bands and rule overrides via
   `scoring_rules.yaml` or `LEAD_FINDER_SCORING_RULES`.
-- Low-confidence leads can never be presented as hot.
+- Low-confidence leads can never be presented as hot, and a lead is never `hot`
+  unless the data established a website gap: an unverified check is not evidence
+  of "no website".
+- `hot` requires a confirmed missing, weak or social-only web presence. A
+  data-rich record whose website was never verified falls back to `warm`.
+- Overriding a rule's points preserves that rule's category and position.
 
 #### Data
 - `Lead` model with a stable `dedupe_key`, timezone-aware timestamps and a
@@ -102,9 +107,16 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Agent and CLI
 - Agent Core: `BaseAgent` contract and `AgentContext` dependency bundle, built so
   further agents can be added without a rewrite.
+- `AgentManager`: registers agents by name, routes work to them and hands every
+  agent one shared `AgentContext`, so agents coordinate through a single
+  repository instead of importing each other. A duplicate name is refused unless
+  `replace=True`.
+- Per-agent failure isolation: `run_isolated()` and `run_all()` report a failing
+  agent as an `AgentRunResult` with `ok=False` rather than raising, so one broken
+  agent cannot discard the work the others completed.
 - `LeadFinderPipeline`: search → normalize → deduplicate → check → score →
   store → results, with per-stage statistics and failure isolation.
-- CLI with `search`, `list`, `show`, `export`, `stats` and `providers`.
+- CLI with `search`, `list`, `show`, `export`, `stats`, `providers` and `agents`.
 - Offline first-run experience via the `sample` provider.
 - Location resolver: city and country input is folded onto one canonical
   spelling, so `عدن`, `مدينة عدن` and `Aden` are the same search. The country is
@@ -113,10 +125,10 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Project
 - Packaging via `pyproject.toml` with a `lead-finder` console script.
 - `Makefile` for install, test, run-example and clean.
-- 301 tests (287 offline unit tests plus 14 integration tests), all passing.
+- 668 tests (647 offline unit tests plus 21 integration tests), all passing.
 - Documentation: README, ARCHITECTURE, CONTRIBUTING, CHANGELOG, and `docs/`
-  covering usage, configuration, architecture, data model, providers and
-  development.
+  covering usage, configuration, architecture, data model, providers, website
+  checker, scoring and development.
 - MIT license.
 
 ### Fixed

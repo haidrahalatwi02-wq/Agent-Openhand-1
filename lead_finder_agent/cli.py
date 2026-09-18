@@ -28,6 +28,7 @@ from lead_finder_agent.cli_output import (
 )
 from lead_finder_agent.config.settings import Settings, get_settings, load_dotenv, reset_settings
 from lead_finder_agent.core.agent import AgentContext, LeadFinderAgent
+from lead_finder_agent.core.manager import AgentManager
 from lead_finder_agent.models import WebsiteStatus
 from lead_finder_agent.search.registry import available_providers
 from lead_finder_agent.storage.base import LeadFilter
@@ -154,9 +155,11 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--min-score", type=int)
     export.add_argument("--limit", type=int)
 
-    # -- stats / providers -------------------------------------------------
+    # -- stats / providers / agents ----------------------------------------
     subparsers.add_parser("stats", help="Show database statistics")
     subparsers.add_parser("providers", help="List available search providers")
+    agents = subparsers.add_parser("agents", help="List agents available to the manager")
+    agents.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
 
     return parser
 
@@ -325,6 +328,19 @@ def cmd_providers(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agents(args: argparse.Namespace) -> int:
+    context = _context(args)
+    manager = AgentManager(context).register_default_agents()
+    described = manager.info()
+    if args.json:
+        print(json.dumps(described, ensure_ascii=False, indent=2))
+        return 0
+    print("Registered agents:")
+    for entry in described:
+        print(f"  {entry['name']:12} {entry['description'] or '(no description)'}")
+    return 0
+
+
 _HANDLERS = {
     "search": cmd_search,
     "list": cmd_list,
@@ -332,6 +348,7 @@ _HANDLERS = {
     "export": cmd_export,
     "stats": cmd_stats,
     "providers": cmd_providers,
+    "agents": cmd_agents,
 }
 
 

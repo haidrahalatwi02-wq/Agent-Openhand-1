@@ -253,17 +253,28 @@ bound parameters everywhere, so a value passed to `--order-by` cannot reach SQL.
 
 ## Agent Core
 
-Two pieces make future agents possible without a rewrite:
+Three pieces make multiple agents possible without a rewrite:
 
 - `BaseAgent` — `name`, `description`, `run(**kwargs)`. Three methods.
 - `AgentContext` — settings plus lazily resolved repository, providers, checker,
   scorer, normalizer and deduplicator. Agents take a context instead of building
   their own dependencies, which keeps them injectable in tests.
+- `AgentManager` — a registry mapping names to agent instances, plus routing.
 
 `LeadFinderAgent` wires the context into `LeadFinderPipeline`. It adds the
 reporting helpers the CLI needs (`list_leads`, `top_leads`, `export`, `stats`).
-An `AgentManager` would be a registry mapping names to agent instances plus a way
-to route work between them; it is intentionally not built yet.
+
+`AgentManager` holds one `AgentContext` and hands it to every agent it registers,
+so a search and any later agent share a repository and settings object instead of
+each constructing their own. Registration refuses a duplicate name unless
+`replace=True`, matching the checker registry: silently swapping an agent would
+change behaviour invisibly. `run()` propagates failures, while `run_isolated()`
+and `run_all()` convert a failure into a failed `AgentRunResult` so one broken
+agent cannot discard the work of the others — the same isolation
+`MultiProviderSearch` applies to providers. The manager imports no concrete agent
+other than the Lead Finder, and the Lead Finder does not know it exists.
+
+`lead-finder agents` lists the registered set.
 
 ## Dependency choices
 

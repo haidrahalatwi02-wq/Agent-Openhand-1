@@ -34,8 +34,10 @@ The CLI is reachable as `lead-finder` or `python -m lead_finder_agent`.
   return a status, set a `skipped_reason`, or raise `ProviderSkip`.
 - Rule data (scoring, business types, website signals) lives in
   `config/data/*.yaml` and must stay editable without code changes.
-- Only the Lead Finder agent exists. `BaseAgent`/`AgentContext` are the seam for
-  future agents — do not build them speculatively.
+- Only the Lead Finder agent is implemented. `BaseAgent`/`AgentContext` are the
+  seam for further agents and `core/manager.py::AgentManager` is the registry
+  that coordinates them. Add agents by subclassing `BaseAgent` and registering
+  them; do not build the remaining roadmap agents speculatively.
 
 ## Core invariant — honesty about data
 
@@ -57,7 +59,7 @@ business. The normalizer enforces a denylist in `extraction/normalizer.py`.
 - Mark network-dependent tests with `@pytest.mark.integration`.
 - Unit tests in `tests/unit/`, integration tests in `tests/integration/`.
 - Name tests for the behaviour asserted, not the method called.
-- Current status: 633 tests passing (612 offline unit, 21 integration).
+- Current status: 668 tests passing (647 offline unit, 21 integration).
 
 ## Style
 

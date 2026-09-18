@@ -222,6 +222,17 @@ class TestOtherCommands:
         assert "osm" in out
         assert "sample" in out
 
+    def test_agents_lists_the_lead_finder(self, db_path, capsys):
+        assert run_cli("--db", db_path, "agents") == 0
+        out = capsys.readouterr().out
+        assert "lead_finder" in out
+
+    def test_agents_json_is_valid(self, db_path, capsys):
+        assert run_cli("--db", db_path, "agents", "--json") == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert [entry["name"] for entry in payload] == ["lead_finder"]
+        assert payload[0]["description"]
+
     def test_unknown_command_exits_nonzero(self):
         with pytest.raises(SystemExit):
             run_cli("frobnicate")

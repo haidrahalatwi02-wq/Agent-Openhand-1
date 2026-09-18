@@ -113,6 +113,7 @@ lead-finder export --format json --output exports/aden-restaurants.json
 | `export` | Export stored leads to JSON, CSV or TSV |
 | `stats` | Database summary |
 | `providers` | List search providers and whether they are available |
+| `agents` | List the agents registered with the Agent Manager |
 
 Useful `search` flags:
 
@@ -172,7 +173,7 @@ lead_finder_agent/
 ├── scoring/      Configurable rule engine
 ├── extraction/   Normalization and de-duplication
 ├── storage/      Repository interface, SQLite backend, exporters
-├── core/         Agent Core: pipeline and agent coordination layer
+├── core/         Agent Core: pipeline, agent contracts, Agent Manager
 ├── config/       Settings, env handling and rule data
 ├── models/       Lead, SearchQuery and related data models
 └── cli.py        Command line interface
@@ -220,13 +221,14 @@ is derived from the score and thresholds.
 
 ## Extending it
 
-The architecture is built for more agents, but only the Lead Finder exists today
-— by design, so the first agent stays simple.
+The architecture is built for more agents, and the coordination layer for them
+now exists. The Lead Finder is the first agent; the **Agent Manager** registers
+agents by name and routes work between them.
 
 ```
 Lead Finder Agent        <-- implemented
       |
-Agent Manager            <-- your next step
+Agent Manager            <-- implemented: register, run, isolate failures
       ├── Lead Finder      <-- done
       ├── Website Analyzer
       ├── Outreach Agent
@@ -235,9 +237,24 @@ Agent Manager            <-- your next step
       └── Reporting Agent
 ```
 
-Adding an agent means subclassing `BaseAgent` and reusing `AgentContext`; nothing
-in the pipeline changes. Adding a data source means subclassing
-`BaseSearchProvider` and registering it. Both walkthroughs are in
+Adding an agent means subclassing `BaseAgent` and registering it with the
+manager; nothing in the pipeline changes.
+
+```python
+from lead_finder_agent.core import AgentManager, LeadFinderAgent
+
+manager = AgentManager().register_default_agents()
+manager.run("lead_finder", city="Aden", limit=20)
+```
+
+`lead-finder agents` lists what is registered. Agents registered with one
+manager share a single `AgentContext`, so they read and write the same
+repository rather than each building their own. `manager.run_all()` runs several
+agents with **per-agent isolation** — one failing agent is reported as a failed
+`AgentRunResult` instead of discarding the work the others did.
+
+Adding a data source means subclassing `BaseSearchProvider` and registering it.
+Both walkthroughs are in
 [docs/development.md](docs/development.md).
 
 ---

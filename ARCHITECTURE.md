@@ -101,7 +101,8 @@ so a high score on thin data is never presented as a hot lead without a caveat.
 
 ## Adding a second agent
 
-The Lead Finder is agent #1. The extension points already exist:
+The Lead Finder is agent #1, and the coordination layer for the next one now
+exists. The extension points:
 
 ```python
 from lead_finder_agent.core.agent import AgentContext, BaseAgent
@@ -117,13 +118,17 @@ class OutreachAgent(BaseAgent):
         return [self._draft(lead) for lead in leads]
 
 
-context = AgentContext()
-result = OutreachAgent(context).run(limit=5)
+manager = AgentManager().register_default_agents()
+manager.register(OutreachAgent(manager.context))
+manager.run("outreach", limit=5)
 ```
 
-An `AgentManager` that registers agents by name and routes between them is a
-small addition on top of this; nothing in `LeadFinderPipeline` or the CLI needs
-to change. The intended end state is:
+`AgentManager` registers agents by name and routes between them; nothing in
+`LeadFinderPipeline` or the CLI needs to change. Agents registered with one
+manager share its `AgentContext`, so they coordinate through one repository
+rather than importing each other. `manager.run_all()` isolates failures: a
+broken agent yields a failed `AgentRunResult` and the rest still run. The end
+state is:
 
 ```
 Lead Finder Agent -> Agent Manager -> { Lead Finder, Website Analyzer,
