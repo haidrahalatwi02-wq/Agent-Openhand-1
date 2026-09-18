@@ -163,6 +163,8 @@ class LeadScore:
     reasons: List[str] = field(default_factory=list)
     priority: LeadPriority = LeadPriority.COLD
     breakdown: Dict[str, int] = field(default_factory=dict)
+    #: Version of the scoring rule set that produced this score.
+    scoring_version: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -171,6 +173,7 @@ class LeadScore:
             "reasons": list(self.reasons),
             "priority": str(self.priority),
             "breakdown": dict(self.breakdown),
+            "scoring_version": self.scoring_version,
         }
 
     @classmethod
@@ -182,6 +185,7 @@ class LeadScore:
             reasons=list(payload.get("reasons") or []),
             priority=LeadPriority(payload.get("priority") or LeadPriority.COLD),
             breakdown={k: int(v) for k, v in (payload.get("breakdown") or {}).items()},
+            scoring_version=int(payload.get("scoring_version") or 1),
         )
 
 
@@ -225,6 +229,7 @@ class Lead:
     score_confidence: Confidence = Confidence.LOW
     score_reason: List[str] = field(default_factory=list)
     score_breakdown: Dict[str, int] = field(default_factory=dict)
+    scoring_version: int = 1
     priority: LeadPriority = LeadPriority.COLD
     discovered_at: Optional[datetime] = None
     last_checked_at: Optional[datetime] = None
@@ -305,6 +310,7 @@ class Lead:
         self.score_confidence = result.confidence
         self.score_reason = list(result.reasons)
         self.score_breakdown = dict(result.breakdown)
+        self.scoring_version = result.scoring_version
         self.priority = result.priority
         return self
 
@@ -353,6 +359,10 @@ class Lead:
         payload["score_breakdown"] = {
             k: int(v) for k, v in (payload.get("score_breakdown") or {}).items()
         }
+        try:
+            payload["scoring_version"] = int(payload.get("scoring_version") or 1)
+        except (TypeError, ValueError):
+            payload["scoring_version"] = 1
         payload["categories"] = list(payload.get("categories") or [])
         payload.setdefault("business_name", "")
         return cls(**{k: v for k, v in payload.items() if k in cls.__dataclass_fields__})
@@ -365,6 +375,26 @@ class Lead:
         """Numeric rank for confidence, so leads can be sorted by it."""
         return {Confidence.LOW: 0, Confidence.MEDIUM: 1, Confidence.HIGH: 2}.get(
             self.score_confidence, 0
+        )
+
+    def sort_key(self) -> tuple:
+        """Total ordering key for ranking leads.
+
+        Score first, then confidence, then name and finally the dedupe key. The
+        trailing fields matter: without them two leads sharing a score would fall
+        back to input order, so the same data could rank differently between
+        runs. Names are lower-cased before comparison so ordering is stable
+        regardless of capitalisation or surrounding whitespace.
+
+        Returns a key suitable for ``sorted(..., reverse=True)``.
+        """
+        name = (self.business_name or "").strip().lower()
+        return (
+            int(self.lead_score or 0),
+            self.confidence_rank(),
+            name,
+            (self.business_name or "").strip(),
+            self.dedupe_key or self.id or "",
         )
 
     def summary_row(self) -> List[str]:

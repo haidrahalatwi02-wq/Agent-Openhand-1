@@ -36,6 +36,7 @@ CSV_COLUMNS: Sequence[str] = (
     "score_confidence",
     "priority",
     "score_reason",
+    "scoring_version",
     "discovered_at",
     "last_checked_at",
 )

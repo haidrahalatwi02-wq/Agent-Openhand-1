@@ -252,6 +252,7 @@ in the pipeline changes. Adding a data source means subclassing
 | [docs/data-model.md](docs/data-model.md) | Every Lead field, and the data policy |
 | [docs/providers.md](docs/providers.md) | Built-in providers and how to add one |
 | [docs/website-checker.md](docs/website-checker.md) | How a website is verified, and why a failed check is not "no website" |
+| [docs/scoring.md](docs/scoring.md) | How leads are scored, and why `hot` needs a verified gap |
 | [docs/development.md](docs/development.md) | Setup, testing, adding agents and providers |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Architecture overview |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |

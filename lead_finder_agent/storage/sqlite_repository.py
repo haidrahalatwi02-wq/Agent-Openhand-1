@@ -24,7 +24,7 @@ from lead_finder_agent.utils.logging_utils import get_logger
 
 log = get_logger("storage.sqlite")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (
@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS leads (
     sources             TEXT NOT NULL DEFAULT '[]',
     provider_ids        TEXT NOT NULL DEFAULT '{}',
     source_urls         TEXT NOT NULL DEFAULT '{}',
+    scoring_version     INTEGER NOT NULL DEFAULT 1,
     raw                 TEXT NOT NULL DEFAULT '{}',
     lead_score          INTEGER NOT NULL DEFAULT 0,
     score_confidence    TEXT NOT NULL DEFAULT 'low',
@@ -99,6 +100,7 @@ _ADDED_COLUMNS = {
     "sources": "TEXT NOT NULL DEFAULT '[]'",
     "provider_ids": "TEXT NOT NULL DEFAULT '{}'",
     "source_urls": "TEXT NOT NULL DEFAULT '{}'",
+    "scoring_version": "INTEGER NOT NULL DEFAULT 1",
 }
 
 _COLUMNS = (
@@ -133,6 +135,7 @@ _COLUMNS = (
     "score_confidence",
     "score_reason",
     "score_breakdown",
+    "scoring_version",
     "priority",
     "discovered_at",
     "last_checked_at",
@@ -251,7 +254,7 @@ class SQLiteLeadRepository(BaseLeadRepository):
                     f"{column} = CASE WHEN excluded.{column} IN ('{{}}', '[]', '') "
                     f"THEN {column} ELSE excluded.{column} END"
                 )
-            elif column in ("lead_score", "priority", "score_confidence"):
+            elif column in ("lead_score", "priority", "score_confidence", "scoring_version"):
                 json_updates.append(f"{column} = excluded.{column}")
             else:
                 json_updates.append(

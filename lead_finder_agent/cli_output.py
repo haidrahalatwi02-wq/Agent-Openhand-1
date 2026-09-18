@@ -146,6 +146,7 @@ def format_lead_detail(lead: Any) -> str:
         f"Source          : {lead.source or '-'}",
         f"Source URL      : {lead.source_url or '-'}",
         f"Score           : {lead.lead_score} ({lead.score_confidence} confidence, {lead.priority})",
+        f"Scoring version : {lead.scoring_version}",
         f"Discovered at   : {lead.discovered_at}",
         f"Last checked    : {lead.last_checked_at or '-'}",
         "Reasons:",

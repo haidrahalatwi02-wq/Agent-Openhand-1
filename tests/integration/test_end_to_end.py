@@ -275,6 +275,66 @@ class TestScoringIntegration:
         assert str(result.leads[-1].priority) == "disqualified"
         repo.close()
 
+    def test_scored_lead_is_persisted_complete_and_rehydratable(
+        self, fake_transport, good_page_html
+    ):
+        """Scoring end-to-end: the stored lead carries a full, reproducible score.
+
+        Nothing here is mocked except the HTTP transport, so this also proves the
+        score survives the storage round-trip and that re-scoring a stored record
+        reaches the same conclusion from the persisted check payload.
+        """
+        from lead_finder_agent.scoring import LeadScorer, hydrate_website_check
+        from lead_finder_agent.search.base import BaseSearchProvider, ProviderKind
+
+        class _Provider(BaseSearchProvider):
+            name = "scored"
+            kind = ProviderKind.CUSTOM
+
+            def search_raw(self, query):
+                base = {
+                    "city": "Aden",
+                    "country": "Yemen",
+                    "phone": "+967 71 000 0000",
+                    "business_status": "active",
+                    "rating": 4.8,
+                    "review_count": 180,
+                }
+                return [
+                    {**base, "business_name": "No Website At All"},
+                    {**base, "business_name": "Fully Served", "website_url": "https://served.example"},
+                ]
+
+        fake_transport.add("served.example", status=200, body=good_page_html)
+        repo = SQLiteLeadRepository(":memory:")
+        result = LeadFinderPipeline(
+            providers=[_Provider()],
+            checker=HttpWebsiteChecker(client=fake_transport.client(), probe_by_name=False),
+            repository=repo,
+        ).run(SearchQuery(city="Aden", limit=10))
+
+        top = result.leads[0]
+        assert top.business_name == "No Website At All"
+        assert top.lead_score > 0
+        assert top.score_reason
+        assert top.priority is not None
+        assert top.score_breakdown
+        assert top.scoring_version >= 1
+
+        stored = repo.get(top.id)
+        assert stored is not None
+        assert stored.lead_score == top.lead_score
+        assert stored.priority == top.priority
+        assert stored.score_breakdown == top.score_breakdown
+
+        # Re-scoring from the persisted payload reaches the same verdict.
+        recovered = hydrate_website_check(stored)
+        assert recovered is not None
+        rescored = LeadScorer().score(stored, check=recovered)
+        assert rescored.score == top.lead_score
+        assert rescored.priority == top.priority
+        repo.close()
+
 
 @pytest.fixture
 def big_good_html() -> str:

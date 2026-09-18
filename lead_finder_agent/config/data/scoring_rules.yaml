@@ -10,30 +10,49 @@
 #   description human readable text added to the lead's score reasons
 #   when        condition evaluated against a "signals" mapping (see below)
 #
+# THE CENTRAL RULE
+#   "A provider did not give us a website" is NOT the same as "the business has
+#   no website". Only a completed check that returned website_not_found is
+#   evidence of absence, and only that earns the full no_website weight.
+#   website_null (no information at all) is deliberately worth far less, so an
+#   unverified record can never rank as a prime prospect.
+#
 # Available signals (all booleans unless noted):
-#   has_website              a website was found and is reachable
+#   --- website opportunity ---
+#   website_missing          a completed check confirmed there is no website
+#   website_unreachable      a known URL failed to respond
+#   website_unknown          a check ran but was inconclusive
+#   website_null             no website information at all (unverified)
+#   website_status_known     the check reached a conclusive answer
+#   --- website condition (verified checker output only) ---
+#   has_website              a website was found
 #   website_reachable        the business URL responded successfully
 #   website_is_good          reachable and looks like a real, working site
 #   website_is_weak          reachable but thin / outdated / broken
 #   website_social_only      the only "website" is a social profile
-#   website_null             no website information at all
-#   website_missing          confirmed there is no website (not_found)
-#   website_unknown          check was inconclusive
+#   --- business relevance ---
+#   has_business_name        the business has a name
+#   has_business_type        a business type / category is known
+#   business_active          the business appears to be operating
+#   business_closed          the business appears to be closed
+#   --- public data completeness ---
 #   has_phone                a phone number is present
 #   has_email                an email address is present
 #   has_address              a street address is present
+#   has_location             a city or country is present
 #   has_social               at least one social profile is present
 #   has_description          a non-empty description is present
 #   has_categories           at least one category tag is present
-#   business_active          the business appears to be operating
-#   business_closed          the business appears to be closed
+#   has_source               a source name or source URL is recorded
+#   --- reputation ---
 #   has_reviews              review_count > reviews_present_threshold
 #   has_good_rating          rating >= good_rating_threshold
 #   has_many_reviews         review_count >= many_reviews_threshold
+#   --- data quality ---
 #   data_quality_high        enough fields filled to trust the record
-#   data_quality_low         too few fields to trust the record
+#   data_quality_low         too few fields filled to trust the record
 
-version: 1
+version: 2
 name: default
 
 thresholds:
@@ -51,44 +70,68 @@ thresholds:
 
 confidence:
   # Confidence is computed from how many of these inputs were actually known.
+  # Only a *conclusive* website check counts; an unverified one adds nothing.
   high_min_signals: 7
   medium_min_signals: 4
 
 rules:
+  # --- website opportunity (the primary driver) -----------------------------
+  # Only a confirmed-absent website earns the large weight.
   - id: no_website
     points: 35
     description: "No website found - prime candidate for a new website"
     when: { website_missing: true }
-
-  - id: no_website_information
-    points: 20
-    description: "No website information available from public sources"
-    when: { website_null: true }
-
-  - id: social_only_presence
-    points: 18
-    description: "Only a social media presence exists, no owned website"
-    when: { website_social_only: true }
-
-  - id: website_unknown_conservative
-    points: 5
-    description: "Website status could not be determined"
-    when: { website_unknown: true }
 
   - id: weak_website
     points: 22
     description: "Has a website but it is thin, broken or outdated"
     when: { website_is_weak: true }
 
+  - id: social_only_presence
+    points: 18
+    description: "Only a social media presence exists, no owned website"
+    when: { website_social_only: true }
+
+  # A URL that failed to respond is better evidence than no URL at all, but it
+  # is not proof the business lacks a site, so it stays well below no_website.
+  - id: website_unreachable_conservative
+    points: 8
+    description: "Website URL exists but could not be reached"
+    when: { website_unreachable: true }
+
+  # Absence of evidence. Kept low on purpose: providers routinely omit the
+  # website field, and that omission says nothing about the business.
+  - id: no_website_information
+    points: 5
+    description: "No website information available from public sources"
+    when: { website_null: true }
+
+  - id: website_unknown_conservative
+    points: 2
+    description: "Website status could not be determined"
+    when: { website_unknown: true }
+
+  # --- business relevance ---------------------------------------------------
   - id: business_active
     points: 15
     description: "Business appears to be active"
     when: { business_active: true }
 
+  - id: has_business_type
+    points: 4
+    description: "Commercial business category is known"
+    when: { has_business_type: true }
+
+  # --- public data completeness ---------------------------------------------
   - id: has_phone
     points: 12
     description: "Public phone number available for outreach"
     when: { has_phone: true }
+
+  - id: has_social
+    points: 8
+    description: "Active social media presence"
+    when: { has_social: true }
 
   - id: has_email
     points: 6
@@ -100,21 +143,27 @@ rules:
     description: "Street address available"
     when: { has_address: true }
 
-  - id: has_social
-    points: 8
-    description: "Active social media presence"
-    when: { has_social: true }
-
   - id: has_description
     points: 5
     description: "Business description available"
     when: { has_description: true }
+
+  - id: has_location
+    points: 4
+    description: "City or country is known"
+    when: { has_location: true }
 
   - id: has_categories
     points: 4
     description: "Business categories are known"
     when: { has_categories: true }
 
+  - id: has_source
+    points: 3
+    description: "Recorded from a known public source"
+    when: { has_source: true }
+
+  # --- reputation -----------------------------------------------------------
   - id: has_good_rating
     points: 8
     description: "Good public rating"
@@ -125,13 +174,13 @@ rules:
     description: "High number of public reviews"
     when: { has_many_reviews: true }
 
+  # --- data quality ---------------------------------------------------------
   - id: data_quality_high
     points: 5
     description: "Well documented public record"
     when: { data_quality_high: true }
 
-  # --- negative signals ------------------------------------------------------
-
+  # --- negative signals -----------------------------------------------------
   - id: good_website
     points: -45
     description: "Business already has a good working website"

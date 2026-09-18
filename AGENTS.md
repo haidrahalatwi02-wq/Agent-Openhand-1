@@ -57,7 +57,7 @@ business. The normalizer enforces a denylist in `extraction/normalizer.py`.
 - Mark network-dependent tests with `@pytest.mark.integration`.
 - Unit tests in `tests/unit/`, integration tests in `tests/integration/`.
 - Name tests for the behaviour asserted, not the method called.
-- Current status: 263 tests passing (254 offline unit, 9 integration).
+- Current status: 633 tests passing (612 offline unit, 21 integration).
 
 ## Style
 

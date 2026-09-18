@@ -152,15 +152,23 @@ def load_scoring_rules(path: Optional[str | Path] = None) -> ScoringRules:
     base_dict = base.to_dict()
     overlay_rules = overlay.get("rules") or []
     if overlay_rules:
-        by_id = {r.id: r for r in base.rules}
+        base_by_id = {r.id: r for r in base.rules}
+        merged_by_id = dict(base_by_id)
+        appended: List[ScoringRule] = []
         for item in overlay_rules:
-            rule = ScoringRule.from_dict(item)
-            by_id[rule.id] = rule
-        base_dict["rules"] = [by_id[r.id].to_dict() for r in base.rules]
-        for item in overlay_rules:
-            rule = ScoringRule.from_dict(item)
-            if rule.id not in {r.id for r in base.rules}:
-                base_dict["rules"].append(rule.to_dict())
+            existing = base_by_id.get(str(item.get("id")))
+            # An override that only changes points or conditions inherits the
+            # original rule's category; without this it silently resets to
+            # "general", losing the grouping of the rule it replaces. An explicit
+            # ``category`` in the overlay still wins.
+            rule = ScoringRule.from_dict(
+                item, category=existing.category if existing is not None else "general"
+            )
+            merged_by_id[rule.id] = rule
+            if existing is None:
+                appended.append(rule)
+        base_dict["rules"] = [merged_by_id[r.id].to_dict() for r in base.rules]
+        base_dict["rules"].extend(rule.to_dict() for rule in appended)
 
     merged = merge_dicts(base_dict, {k: v for k, v in overlay.items() if k != "rules"})
     merged["rules"] = base_dict["rules"]

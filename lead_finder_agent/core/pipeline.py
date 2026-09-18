@@ -23,6 +23,7 @@ from lead_finder_agent.models import (
     WebsiteStatus,
     utcnow,
 )
+from lead_finder_agent.scoring.base import BaseLeadScorer
 from lead_finder_agent.scoring.engine import LeadScorer
 from lead_finder_agent.search.base import BaseSearchProvider
 from lead_finder_agent.search.multi import MultiProviderSearch
@@ -87,7 +88,7 @@ class PipelineResult:
         }
 
     def top(self, limit: int = 10) -> List[Lead]:
-        return sorted(self.leads, key=lambda l: l.lead_score, reverse=True)[:limit]
+        return sorted(self.leads, key=lambda l: l.sort_key(), reverse=True)[:limit]
 
 
 class LeadFinderPipeline:
@@ -97,7 +98,7 @@ class LeadFinderPipeline:
         self,
         providers: Optional[Sequence[BaseSearchProvider]] = None,
         checker: Optional[BaseWebsiteChecker] = None,
-        scorer: Optional[LeadScorer] = None,
+        scorer: Optional[BaseLeadScorer] = None,
         repository: Optional[BaseLeadRepository] = None,
         normalizer: Optional[LeadNormalizer] = None,
         deduplicator: Optional[Deduplicator] = None,
@@ -155,7 +156,7 @@ class LeadFinderPipeline:
             log.warning("No repository configured; results were not persisted")
 
         # 7. Results
-        leads = sorted(leads, key=lambda l: (l.lead_score, l.confidence_rank()), reverse=True)
+        leads = sorted(leads, key=lambda l: l.sort_key(), reverse=True)
         result.leads = leads
         stats.elapsed_seconds = _now() - started
         log.info(

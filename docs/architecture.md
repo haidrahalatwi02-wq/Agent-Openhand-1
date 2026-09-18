@@ -86,8 +86,10 @@ added without changing the pipeline.
 **Scoring.** Builds a signal dictionary from the lead and the check result, then
 evaluates every rule whose conditions all hold. The sum is clamped to
 `score_min`..`score_max`. Confidence comes from how many signals were present.
-Priority comes from the score plus thresholds. Every rule that fired contributes
-a human-readable reason.
+Priority comes from the score plus thresholds, and `hot` additionally requires a
+verified website gap — an unverified record is never a prime prospect. Every rule
+that fired contributes a human-readable reason. See
+[docs/scoring.md](scoring.md) for the rules, thresholds and invariants.
 
 **Storage.** `SQLiteLeadRepository.add` is an upsert on `dedupe_key` that
 preserves existing non-empty values when the incoming record is blank. Re-running

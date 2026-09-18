@@ -11,15 +11,21 @@ from lead_finder_agent.models import (
     Lead,
     LeadPriority,
     LeadScore,
+    WebsiteCheckResult,
     WebsiteQuality,
     WebsiteStatus,
 )
+from lead_finder_agent.scoring.base import BaseLeadScorer
 from lead_finder_agent.scoring.rules import ScoringRules, load_scoring_rules
 from lead_finder_agent.utils.logging_utils import get_logger
 
 log = get_logger("scoring.engine")
 
 # Which signals count toward "how much do we actually know?" confidence.
+#
+# NOTE: ``website_status_known`` is true only for a *conclusive* check (the
+# business has a site, or a server confirmed it has none). An inconclusive or
+# never-run check adds no confidence: "we did not check" is not knowledge.
 _CONFIDENCE_SIGNALS = (
     "has_phone",
     "has_email",
@@ -41,6 +47,26 @@ def _has(value: Any) -> bool:
     if isinstance(value, (list, tuple, set, dict)):
         return len(value) > 0
     return True
+
+
+def hydrate_website_check(lead: Lead) -> Optional[WebsiteCheckResult]:
+    """Recover the stored check result from ``lead.raw``, if it is usable.
+
+    Scoring must be able to run against a stored lead without re-running the
+    checker. Anything that cannot be parsed is discarded, so corrupt data can
+    never be mistaken for a conclusive "this business has no website".
+    """
+    raw = getattr(lead, "raw", None)
+    if not isinstance(raw, Mapping):
+        return None
+    payload = raw.get("website_check")
+    if not isinstance(payload, Mapping) or not payload:
+        return None
+    try:
+        return WebsiteCheckResult.from_dict(dict(payload))
+    except (ValueError, TypeError) as exc:
+        log.debug("Ignoring malformed stored website_check for %r: %s", lead.business_name, exc)
+        return None
 
 
 def build_signals(
@@ -69,14 +95,29 @@ def build_signals(
         social_only = bool(getattr(check, "social_only", False))
     else:
         reachable = bool(lead.website_url) and status == WebsiteStatus.EXISTS
-        raw_check = lead.raw.get("website_check") or {}
-        social_only = bool(raw_check.get("social_only", False))
+        stored = hydrate_website_check(lead)
+        if stored is not None:
+            social_only = bool(stored.social_only)
 
     has_website = status == WebsiteStatus.EXISTS
     website_is_good = has_website and quality == WebsiteQuality.GOOD
-    website_is_weak = has_website and quality in (WebsiteQuality.WEAK, WebsiteQuality.SOCIAL_ONLY)
+    website_is_weak = has_website and quality == WebsiteQuality.WEAK
     if social_only:
         website_is_weak = False  # reported through website_social_only instead
+
+    # The website statuses are deliberately kept distinct. A provider omitting a
+    # website field (``website_null``) is *absence of evidence*; only a completed
+    # check returning ``website_not_found`` is evidence of absence.
+    website_missing = status == WebsiteStatus.NOT_FOUND
+    website_unknown = status == WebsiteStatus.UNKNOWN
+    website_unreachable = status == WebsiteStatus.UNREACHABLE
+    website_null = (
+        not has_website
+        and not website_missing
+        and status == WebsiteStatus.NOT_CHECKED
+        and not lead.website_url
+    )
+    website_status_known = status in (WebsiteStatus.EXISTS, WebsiteStatus.NOT_FOUND)
 
     review_count = lead.review_count
     rating = lead.rating
@@ -100,33 +141,38 @@ def build_signals(
     min_fields = int(thresholds.get("data_quality_min_fields", 4))
 
     signals: Dict[str, Any] = {
-        # website
+        # --- website opportunity -------------------------------------------
+        "website_missing": website_missing,
+        "website_unknown": website_unknown,
+        "website_unreachable": website_unreachable,
+        "website_null": website_null,
+        "website_status_known": website_status_known,
+        # --- website condition (verified checker output only) ---------------
         "has_website": has_website,
         "website_reachable": reachable,
         "website_is_good": website_is_good,
-        "website_is_weak": website_is_weak or quality == WebsiteQuality.WEAK,
+        "website_is_weak": website_is_weak,
         "website_social_only": social_only or quality == WebsiteQuality.SOCIAL_ONLY,
-        "website_null": not has_website and status == WebsiteStatus.NOT_CHECKED and not lead.website_url,
-        "website_missing": status == WebsiteStatus.NOT_FOUND,
-        "website_unknown": status in (WebsiteStatus.UNKNOWN, WebsiteStatus.UNREACHABLE),
-        "website_status_known": status
-        not in (WebsiteStatus.UNKNOWN, WebsiteStatus.UNREACHABLE, WebsiteStatus.NOT_CHECKED),
-        # contactability
-        "has_phone": _has(lead.phone),
-        "has_email": _has(lead.email),
-        "has_address": _has(lead.address),
-        "has_social": bool(lead.social_links),
-        "has_description": _has(lead.description),
-        "has_categories": bool(lead.categories),
-        # business reality
+        # --- business relevance ---------------------------------------------
+        "has_business_name": _has(lead.business_name),
+        "has_business_type": _has(lead.business_type),
         "business_active": lead.business_status == BusinessStatus.ACTIVE,
         "business_closed": lead.business_status == BusinessStatus.CLOSED,
         "business_active_or_closed": lead.business_status != BusinessStatus.UNKNOWN,
-        # reputation
+        # --- contactability / public data completeness -----------------------
+        "has_phone": _has(lead.phone),
+        "has_email": _has(lead.email),
+        "has_address": _has(lead.address),
+        "has_location": _has(lead.city) or _has(lead.country),
+        "has_social": bool(lead.social_links),
+        "has_description": _has(lead.description),
+        "has_categories": bool(lead.categories),
+        "has_source": _has(lead.source) or _has(lead.source_url),
+        # --- reputation -------------------------------------------------------
         "has_reviews": bool(review_count and review_count > reviews_present),
         "has_good_rating": bool(rating and rating >= good_rating),
         "has_many_reviews": bool(review_count and review_count >= many_reviews),
-        # data quality
+        # --- data quality -----------------------------------------------------
         "data_quality_high": filled >= min_fields + 2,
         "data_quality_low": filled <= 2,
         "filled_field_count": filled,
@@ -135,8 +181,8 @@ def build_signals(
 
 
 @dataclass
-class LeadScorer:
-    """Applies :class:`ScoringRules` to leads."""
+class LeadScorer(BaseLeadScorer):
+    """The default rule-based scorer."""
 
     rules: ScoringRules = None  # type: ignore[assignment]
 
@@ -147,7 +193,7 @@ class LeadScorer:
     # -- public API --------------------------------------------------------
 
     def score(self, lead: Lead, check: Optional[Any] = None) -> LeadScore:
-        """Compute a :class:`LeadScore` for ``lead``."""
+        """Compute a :class:`LeadScore` for ``lead`` without modifying it."""
         signals = build_signals(lead, check=check, rules=self.rules)
         breakdown: Dict[str, int] = {}
         reasons: List[str] = []
@@ -166,7 +212,7 @@ class LeadScorer:
         total = max(low, min(high, total))
 
         confidence = self._confidence(signals)
-        priority = self._priority(total, confidence)
+        priority = self._priority(total, confidence, signals)
 
         if not reasons:
             reasons.append("No significant scoring signals found")
@@ -177,6 +223,7 @@ class LeadScorer:
             reasons=reasons,
             priority=priority,
             breakdown=breakdown,
+            scoring_version=self.rules.version,
         )
 
     def score_lead(self, lead: Lead, check: Optional[Any] = None) -> Lead:
@@ -187,16 +234,25 @@ class LeadScorer:
         checks = checks or {}
         result = []
         for lead in leads:
-            check = checks.get(lead.dedupe_key or lead.id or "")
+            check = None
+            for key in (lead.dedupe_key, lead.id):
+                if key and key in checks:
+                    check = checks[key]
+                    break
             result.append(self.score_lead(lead, check=check))
         return result
 
     # -- internals ---------------------------------------------------------
 
     def _confidence(self, signals: Mapping[str, Any]) -> Confidence:
+        """How much is actually known about this lead.
+
+        This describes confidence in the *score*, never certainty that the
+        business has no website.
+        """
         known = 0
         for key in _CONFIDENCE_SIGNALS:
-            if key in signals and signals[key] is True:
+            if signals.get(key) is True:
                 known += 1
         # A record with a phone number is meaningfully actionable even if thin.
         if signals.get("has_phone"):
@@ -210,7 +266,28 @@ class LeadScorer:
             return Confidence.MEDIUM
         return Confidence.LOW
 
-    def _priority(self, score: int, confidence: Confidence) -> LeadPriority:
+    def _is_prime_prospect(self, signals: Mapping[str, Any]) -> bool:
+        """True when the data actually established that the business needs a site.
+
+        "Hot" means prime prospect for a *new* website, so it requires evidence
+        of a website gap: a server-confirmed missing site, a weak or parked one,
+        or a social-only presence. An unverified check ("we could not tell") and
+        a good working website are both excluded, so a data-rich record can never
+        be promoted to hot on signals that never established a gap.
+        """
+        if signals.get("website_missing") or signals.get("website_is_weak"):
+            return True
+        return bool(signals.get("has_website") and signals.get("website_social_only"))
+
+    def _priority(
+        self, score: int, confidence: Confidence, signals: Mapping[str, Any]
+    ) -> LeadPriority:
+        # A closed business is never a viable prospect. Deciding this as a rule
+        # (rather than relying on the penalty being large enough) keeps a rich
+        # record from ever lifting a dead business into "warm".
+        if signals.get("business_closed"):
+            return LeadPriority.DISQUALIFIED
+
         thresholds = self.rules.thresholds or {}
         hot = int(thresholds.get("hot_score", 70))
         warm = int(thresholds.get("warm_score", 45))
@@ -235,7 +312,10 @@ class LeadScorer:
         # Never label a lead "hot" on flimsy data.
         if rank[confidence] < rank[allowed] and candidate in (LeadPriority.HOT, LeadPriority.WARM):
             return LeadPriority.COLD
+        # ...nor on a record that never established a website gap.
+        if candidate == LeadPriority.HOT and not self._is_prime_prospect(signals):
+            return LeadPriority.WARM
         return candidate
 
 
-__all__ = ["LeadScorer", "build_signals"]
+__all__ = ["LeadScorer", "build_signals", "hydrate_website_check"]
