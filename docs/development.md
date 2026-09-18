@@ -131,40 +131,41 @@ and preserve non-empty values on upsert to retain the enrichment behaviour.
 
 ## Adding a new agent
 
-This is the intended direction of the project. The seams already exist.
+This is the intended direction of the project. The seams already exist, and the
+**Website Analyzer** is a worked example of them — read
+[`lead_finder_agent/agents/website_analyzer.py`](../lead_finder_agent/agents/website_analyzer.py)
+alongside this section.
 
 ```python
 from lead_finder_agent.core.agent import AgentContext, BaseAgent
 
 
-class WebsiteAnalyzerAgent(BaseAgent):
-    """Deeper analysis of websites found by the Lead Finder."""
+class OutreachAgent(BaseAgent):
+    """Drafts an opening message for each lead worth contacting."""
 
-    name = "website_analyzer"
-    description = "Analyse the quality and stack of a lead's website"
+    name = "outreach"
+    description = "Draft outreach for qualified leads"
 
     def run(self, limit: int = 20):
         leads = self.context.resolve_repository().find(
-            LeadFilter(website_status=WebsiteStatus.EXISTS, limit=limit)
+            LeadFilter(min_score=60, limit=limit)
         )
-        return [self._analyse(lead) for lead in leads]
+        return [self._draft(lead) for lead in leads]
 
-    def _analyse(self, lead):
-        ...  # reuse context.resolve_checker() for the raw fetch
-
-
-context = AgentContext()
-WebsiteAnalyzerAgent(context).run(limit=10)
+    def _draft(self, lead):
+        ...  # reuse the stored score reasons; do not re-score
 ```
 
-Then register it with the manager, which coordinates agents by name:
+Then register it. `register_default_agents()` is the place an agent joins the
+default set — it uses a lazy import so the manager stays decoupled from the agent
+modules and no import cycle forms:
 
 ```python
 from lead_finder_agent.core import AgentManager
 
 manager = AgentManager().register_default_agents()
-manager.register(WebsiteAnalyzerAgent(manager.context))
-manager.run("website_analyzer", limit=10)
+manager.register(OutreachAgent(manager.context))
+manager.run("outreach", limit=10)
 ```
 
 `AgentManager` gives every agent it registers the *same* `AgentContext`, so a
@@ -215,6 +216,16 @@ Rules for new agents:
 4. Do not import another agent directly.
 5. Register against the shared context (`AgentManager(context)`), not a fresh
    one, or the agent will write to a different database than the Lead Finder.
+6. Read what earlier stages recorded; do not re-derive it. The analyzer reports
+   the stored website check rather than re-checking the site, so its output can
+   never contradict the lead it describes. Re-scoring or re-checking inside a
+   reporting agent also makes stored results depend on when the agent last ran.
+7. Inherit the honesty invariant. If a value is unknown, say so. Do not turn
+   "we could not tell" into a confident negative — see
+   [website-analyzer.md](website-analyzer.md#what-it-refuses-to-do).
+8. Default to read-only. Return your results, and only write to the repository
+   when the caller explicitly asks (the analyzer uses a `store=True` flag).
+
 
 ## Adding a provider
 

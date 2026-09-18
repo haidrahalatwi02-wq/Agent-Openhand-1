@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "thresholds": {
+    "slow_response_ms": 3000,
+    "min_title_length": 3
+  },
+  "severities": {
+    "no_website_confirmed": "high",
+    "social_only_presence": "high",
+    "site_unreachable": "medium",
+    "no_https": "medium",
+    "weak_quality": "medium",
+    "identity_uncertain": "medium",
+    "no_contact_details": "medium",
+    "no_shop": "low",
+    "slow_response": "low",
+    "truncated_response": "low",
+    "missing_title": "low",
+    "check_unavailable": "info"
+  }
+}

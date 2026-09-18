@@ -257,7 +257,7 @@ class TestDefaultAgents:
     def test_registering_defaults_twice_is_safe(self):
         manager = AgentManager().register_default_agents()
         manager.register_default_agents()
-        assert len(manager) == 1
+        assert len(manager) == 2
 
     def test_default_agents_share_the_managers_context(self):
         context = AgentContext()
@@ -266,7 +266,10 @@ class TestDefaultAgents:
 
     def test_the_default_agent_set_is_visible_on_the_cli(self):
         manager = AgentManager().register_default_agents()
-        assert [entry["name"] for entry in manager.info()] == ["lead_finder"]
+        assert [entry["name"] for entry in manager.info()] == [
+            "lead_finder",
+            "website_analyzer",
+        ]
 
 
 class TestLeadFinderThroughTheManager:

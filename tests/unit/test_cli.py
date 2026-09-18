@@ -227,11 +227,17 @@ class TestOtherCommands:
         out = capsys.readouterr().out
         assert "lead_finder" in out
 
+    def test_agents_lists_every_default_agent(self, db_path, capsys):
+        assert run_cli("--db", db_path, "agents") == 0
+        out = capsys.readouterr().out
+        assert "lead_finder" in out
+        assert "website_analyzer" in out
+
     def test_agents_json_is_valid(self, db_path, capsys):
         assert run_cli("--db", db_path, "agents", "--json") == 0
         payload = json.loads(capsys.readouterr().out)
-        assert [entry["name"] for entry in payload] == ["lead_finder"]
-        assert payload[0]["description"]
+        assert [entry["name"] for entry in payload] == ["lead_finder", "website_analyzer"]
+        assert all(entry["description"] for entry in payload)
 
     def test_unknown_command_exits_nonzero(self):
         with pytest.raises(SystemExit):
@@ -242,3 +248,70 @@ class TestOtherCommands:
         run_cli("--db", str(target), "search", "--city", "Aden",
                 "--providers", "sample", "--no-website-check", "--limit", "1")
         assert target.exists()
+
+
+class TestAnalyzeCommand:
+    def _seed(self, db_path, capsys):
+        """Search first, then drain stdout so only the command under test is read."""
+        run_cli(
+            "--db", db_path, "search",
+            "--city", "Aden",
+            "--providers", "sample",
+            "--no-website-check",
+            "--limit", "5",
+        )
+        capsys.readouterr()
+
+    def test_analyze_reports_stored_leads(self, db_path, capsys):
+        self._seed(db_path, capsys)
+        assert run_cli("--db", db_path, "analyze") == 0
+        out = capsys.readouterr().out
+        assert "Business" in out
+        assert "Findings" in out
+
+    def test_analyze_explains_that_unknown_is_not_absence(self, db_path, capsys):
+        # The legend is what stops a reader taking an inconclusive check as
+        # proof the business has no website.
+        self._seed(db_path, capsys)
+        run_cli("--db", db_path, "analyze")
+        out = capsys.readouterr().out
+        assert "does NOT mean the business has no website" in out
+
+    def test_analyze_json_is_valid(self, db_path, capsys):
+        self._seed(db_path, capsys)
+        assert run_cli("--db", db_path, "analyze", "--json") == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload
+        assert all("findings" in entry for entry in payload)
+
+    def test_analyze_on_an_empty_database_is_not_an_error(self, db_path, capsys):
+        assert run_cli("--db", db_path, "analyze") == 0
+        assert "No stored leads matched" in capsys.readouterr().out
+
+    def test_analyze_does_not_write_findings_by_default(self, db_path, capsys):
+        self._seed(db_path, capsys)
+        run_cli("--db", db_path, "analyze")
+        repo = SQLiteLeadRepository(db_path)
+        assert all("website_analysis" not in (lead.raw or {}) for lead in repo.find())
+        repo.close()
+
+    def test_analyze_store_persists_findings(self, db_path, capsys):
+        self._seed(db_path, capsys)
+        run_cli("--db", db_path, "analyze", "--store")
+        repo = SQLiteLeadRepository(db_path)
+        stored = repo.find()
+        assert any("website_analysis" in (lead.raw or {}) for lead in stored)
+        repo.close()
+
+    def test_analyze_min_severity_accepts_known_levels(self, db_path, capsys):
+        self._seed(db_path, capsys)
+        assert run_cli("--db", db_path, "analyze", "--min-severity", "medium") == 0
+        capsys.readouterr()
+
+    def test_an_unknown_min_severity_is_rejected_by_the_parser(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["analyze", "--min-severity", "catastrophic"])
+
+    def test_an_unknown_status_filter_is_rejected_by_the_parser(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["analyze", "--status", "website_maybe"])

@@ -116,19 +116,47 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   agent cannot discard the work the others completed.
 - `LeadFinderPipeline`: search → normalize → deduplicate → check → score →
   store → results, with per-stage statistics and failure isolation.
-- CLI with `search`, `list`, `show`, `export`, `stats`, `providers` and `agents`.
+- CLI with `search`, `list`, `show`, `export`, `stats`, `providers`, `agents` and
+  `analyze`.
 - Offline first-run experience via the `sample` provider.
 - Location resolver: city and country input is folded onto one canonical
   spelling, so `عدن`, `مدينة عدن` and `Aden` are the same search. The country is
   inferred from the city when omitted. Aliases live in `locations.json`.
 
+#### Website Analyzer agent
+- `WebsiteAnalyzerAgent` (`agents/website_analyzer.py`): reads the leads already
+  stored and turns each stored website check into findings an outreach message
+  can use, instead of a single status.
+- Twelve finding kinds — `no_website_confirmed`, `social_only_presence`,
+  `site_unreachable`, `no_https`, `weak_quality`, `identity_uncertain`,
+  `no_contact_details`, `no_shop`, `slow_response`, `truncated_response`,
+  `missing_title`, `check_unavailable` — each carrying a severity and a
+  human-readable reason.
+- Thresholds and severities are rule data in
+  `config/data/website_analysis.{yaml,json}`, editable without a code change and
+  overridable per call.
+- The agent reports the stored check rather than re-checking the site, so its
+  output cannot contradict the lead it describes and it makes no network request
+  unless `recheck=True` is passed.
+- Absent data is not a negative: a finding about HTTPS, a contact page, a shop,
+  response time, truncation or the title is emitted only when the stored payload
+  actually recorded that field, so an older or partial record produces no claim
+  about details nobody checked.
+- Read-only by default. Findings are returned, and written back only under
+  `store=True`. They never change a lead's score.
+- Registered with `AgentManager` through a lazy import in
+  `register_default_agents()`, so the manager stays decoupled and no import cycle
+  forms.
+- `lead-finder analyze` exposes it from the CLI, with `--limit`, `--lead-id`,
+  `--status`, `--min-severity`, `--recheck`, `--store` and `--json`.
+
 #### Project
 - Packaging via `pyproject.toml` with a `lead-finder` console script.
 - `Makefile` for install, test, run-example and clean.
-- 668 tests (647 offline unit tests plus 21 integration tests), all passing.
+- 764 tests (730 offline unit tests plus 34 integration tests), all passing.
 - Documentation: README, ARCHITECTURE, CONTRIBUTING, CHANGELOG, and `docs/`
   covering usage, configuration, architecture, data model, providers, website
-  checker, scoring and development.
+  checker, scoring, website analyzer and development.
 - MIT license.
 
 ### Fixed

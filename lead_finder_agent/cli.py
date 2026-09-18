@@ -18,8 +18,12 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from lead_finder_agent import __version__
+from lead_finder_agent.agents import SEVERITY_ORDER, WebsiteAnalyzerAgent
 from lead_finder_agent.cli_output import (
+    ANALYSIS_HEADERS,
     LEAD_HEADERS,
+    analysis_rows,
+    format_analysis_legend,
     format_lead_detail,
     format_stats,
     format_website_legend,
@@ -160,6 +164,37 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("providers", help="List available search providers")
     agents = subparsers.add_parser("agents", help="List agents available to the manager")
     agents.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
+
+    # -- analyze -----------------------------------------------------------
+    analyze = subparsers.add_parser(
+        "analyze",
+        help="Analyse the websites of stored leads (Website Analyzer agent)",
+    )
+    analyze.add_argument("--limit", type=int, default=25, help="Maximum leads to analyse")
+    analyze.add_argument("--lead-id", help="Analyse one stored lead by id")
+    analyze.add_argument(
+        "--status",
+        dest="statuses",
+        action="append",
+        choices=[str(s) for s in WebsiteStatus],
+        help="Only analyse leads with this website status (repeatable)",
+    )
+    analyze.add_argument(
+        "--min-severity",
+        choices=sorted(SEVERITY_ORDER),
+        help="Only report leads with a finding at least this severe",
+    )
+    analyze.add_argument(
+        "--recheck",
+        action="store_true",
+        help="Check leads that have no stored check (this makes network requests)",
+    )
+    analyze.add_argument(
+        "--store",
+        action="store_true",
+        help="Save the findings onto the stored leads",
+    )
+    analyze.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
 
     return parser
 
@@ -337,7 +372,39 @@ def cmd_agents(args: argparse.Namespace) -> int:
         return 0
     print("Registered agents:")
     for entry in described:
-        print(f"  {entry['name']:12} {entry['description'] or '(no description)'}")
+        print(f"  {entry['name']:18} {entry['description'] or '(no description)'}")
+    return 0
+
+
+def cmd_analyze(args: argparse.Namespace) -> int:
+    context = _context(args)
+    agent = WebsiteAnalyzerAgent(context=context, store=args.store)
+    analyses = agent.run(
+        limit=args.limit,
+        lead_id=args.lead_id,
+        statuses=args.statuses,
+        recheck=args.recheck,
+        min_severity=args.min_severity,
+    )
+
+    if args.json:
+        print(
+            json.dumps(
+                [analysis.to_dict() for analysis in analyses],
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+        return 0
+
+    if not analyses:
+        print("No stored leads matched. Run 'search' first, or relax the filters.")
+        return 0
+
+    print(render_table(ANALYSIS_HEADERS, analysis_rows(analyses)))
+    print()
+    print(format_analysis_legend())
     return 0
 
 
@@ -349,6 +416,7 @@ _HANDLERS = {
     "stats": cmd_stats,
     "providers": cmd_providers,
     "agents": cmd_agents,
+    "analyze": cmd_analyze,
 }
 
 

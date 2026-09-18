@@ -238,7 +238,8 @@ lead-finder agents
 
 ```
 Registered agents:
-  lead_finder  Discover local businesses, check their web presence and score leads
+  lead_finder        Discover local businesses, check their web presence and score leads
+  website_analyzer   Analyse the quality and identity of a lead's website
 ```
 
 Lists every agent the Agent Manager knows about, so a newly added agent is
@@ -257,7 +258,58 @@ from lead_finder_agent.core import AgentManager
 
 manager = AgentManager().register_default_agents()
 manager.run("lead_finder", city="Aden", limit=20)
+manager.run("website_analyzer", limit=10)
 ```
+
+## `analyze`
+
+```bash
+lead-finder analyze [--limit 25] [--lead-id ID] [--status STATUS]...
+                    [--min-severity LEVEL] [--recheck] [--store] [--json]
+```
+
+Runs the **Website Analyzer** over the leads already in the database and reports
+what is wrong with each website. It reads the stored website check rather than
+re-checking the site, so it makes no network requests unless you pass
+`--recheck`.
+
+| Flag | Meaning |
+| --- | --- |
+| `--limit N` | Analyse at most N stored leads (default 25) |
+| `--lead-id ID` | Analyse a single lead |
+| `--status STATUS` | Only leads in this state; repeatable (`website_exists`, `website_not_found`, `website_unreachable`, `website_unknown`, `website_not_checked`) |
+| `--min-severity LEVEL` | Only leads with a finding at least this severe (`info`, `low`, `medium`, `high`) |
+| `--recheck` | Let the checker fill in a missing check — **this uses the network** |
+| `--store` | Save the findings onto the stored leads |
+| `--json` | Machine-readable output |
+
+```bash
+# Everything with something worth acting on
+lead-finder analyze --min-severity medium
+
+# Leads whose site the checker confirmed is gone
+lead-finder analyze --status website_not_found
+
+# One lead, machine-readable
+lead-finder analyze --lead-id 4f2a... --json
+```
+
+Output:
+
+```
+Business                   | Status              | Quality | Attention | Findings
+---------------------------+---------------------+---------+-----------+------------------
+Golden Star Bakery         | website_not_checked | unknown | no        | check_unavailable
+Aden Fashion House         | website_exists      | weak    | yes       | weak_quality, no_contact_details, no_shop
+```
+
+`Attention` is `yes` when a finding is `medium` or `high`. It is `no` for
+`check_unavailable` not because the site is fine — the check simply told us
+nothing worth acting on — which is why the CLI prints a footer saying so.
+
+The command writes nothing by default; add `--store` to keep the findings. The
+findings never change a lead's score. Full detail, including every finding kind
+and its severity: [website-analyzer.md](website-analyzer.md).
 
 ## A complete workflow
 
@@ -274,10 +326,13 @@ lead-finder list --min-score 70 --limit 20
 # 4. Inspect one in detail before contacting
 lead-finder show <lead-id>
 
-# 5. Export the shortlist
+# 5. See what is wrong with their websites
+lead-finder analyze --min-severity medium
+
+# 6. Export the shortlist
 lead-finder export --format csv --output exports/aden-hot.csv --min-score 70
 
-# 6. Re-run later: existing rows are refreshed, not duplicated
+# 7. Re-run later: existing rows are refreshed, not duplicated
 lead-finder search --city Aden --country Yemen --type restaurants --limit 50
 ```
 

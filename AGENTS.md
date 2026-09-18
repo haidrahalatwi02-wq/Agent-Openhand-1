@@ -32,12 +32,20 @@ The CLI is reachable as `lead-finder` or `python -m lead_finder_agent`.
   transport. That single seam is what keeps the test suite offline.
 - Failures that cross a network boundary must degrade, not abort a run:
   return a status, set a `skipped_reason`, or raise `ProviderSkip`.
-- Rule data (scoring, business types, website signals) lives in
-  `config/data/*.yaml` and must stay editable without code changes.
-- Only the Lead Finder agent is implemented. `BaseAgent`/`AgentContext` are the
+- Rule data (scoring, business types, website signals, website analysis) lives
+  in `config/data/*.yaml` and must stay editable without code changes.
+- Two agents are implemented: the Lead Finder (`core/agent.py`) and the Website
+  Analyzer (`agents/website_analyzer.py`). `BaseAgent`/`AgentContext` are the
   seam for further agents and `core/manager.py::AgentManager` is the registry
   that coordinates them. Add agents by subclassing `BaseAgent` and registering
-  them; do not build the remaining roadmap agents speculatively.
+  them in `register_default_agents()` (lazy import, to avoid cycles); do not
+  build the remaining roadmap agents speculatively.
+- An agent must not import another agent. They coordinate through the shared
+  `AgentContext` and the stored data.
+- A reporting agent reads what earlier stages recorded and must not re-derive
+  it: the analyzer reports the stored website check rather than re-checking, so
+  it can never contradict the lead it describes. Agents are read-only unless the
+  caller explicitly opts in (`WebsiteAnalyzerAgent(store=True)`).
 
 ## Core invariant — honesty about data
 
@@ -59,7 +67,7 @@ business. The normalizer enforces a denylist in `extraction/normalizer.py`.
 - Mark network-dependent tests with `@pytest.mark.integration`.
 - Unit tests in `tests/unit/`, integration tests in `tests/integration/`.
 - Name tests for the behaviour asserted, not the method called.
-- Current status: 668 tests passing (647 offline unit, 21 integration).
+- Current status: 764 tests passing (730 offline unit, 34 integration).
 
 ## Style
 
@@ -76,10 +84,20 @@ business. The normalizer enforces a denylist in `extraction/normalizer.py`.
 
 ### Known environment limitation
 
-The `GITHUB_TOKEN` in this workspace authenticates as `hidrhalatywm773-web`,
-which has **read-only** access (`push: false`) to
-`haidrahalatwi02-wq/Agent-Openhand-1`. Pushing and forking both return 403 /
-"Resource not accessible by integration".
+Earlier sessions found the workspace `GITHUB_TOKEN` authenticated as a different
+account with **read-only** access to `haidrahalatwi02-wq/Agent-Openhand-1`
+(`push: false`), so pushing and forking returned 403 / "Resource not accessible
+by integration".
 
-Work must be committed locally and the limitation reported to the user. A token
-with write access to the repository is required to push.
+The token has since been updated. It now authenticates as `haidrahalatwi02-wq`,
+which owns the repository and has `push: true`. Check before relying on this
+either way:
+
+```bash
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+  https://api.github.com/repos/haidrahalatwi02-wq/Agent-Openhand-1 \
+  | python -c "import sys,json; print(json.load(sys.stdin)['permissions'])"
+```
+
+If `push` is `false`, work must be committed locally and the limitation reported;
+a token with write access is required to push.

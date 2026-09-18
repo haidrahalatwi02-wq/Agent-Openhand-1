@@ -178,12 +178,22 @@ class AgentManager:
     def register_default_agents(self) -> "AgentManager":
         """Register the agents that ship with the project.
 
-        The Lead Finder is the only one today. This exists so a caller gets the
-        standard set without knowing the class, and so adding the next built-in
-        agent is a single line here rather than a change in every caller.
+        The Lead Finder owns discovery; the Website Analyzer reads what it
+        stored. This exists so a caller gets the standard set without knowing
+        the class names, and so adding the next built-in agent is a single line
+        here rather than a change in every caller.
+
+        The analyzer is imported lazily: ``agents`` depends on ``core.agent``,
+        and importing it at module scope would make the package's import order
+        matter for no benefit.
         """
         if LeadFinderAgent.name not in self._agents:
             self.register(LeadFinderAgent(self.context))
+
+        from lead_finder_agent.agents.website_analyzer import WebsiteAnalyzerAgent
+
+        if WebsiteAnalyzerAgent.name not in self._agents:
+            self.register(WebsiteAnalyzerAgent(self.context))
         return self
 
     def info(self) -> List[Dict[str, str]]:

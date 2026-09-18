@@ -114,6 +114,7 @@ lead-finder export --format json --output exports/aden-restaurants.json
 | `stats` | Database summary |
 | `providers` | List search providers and whether they are available |
 | `agents` | List the agents registered with the Agent Manager |
+| `analyze` | Analyse the websites of stored leads (Website Analyzer agent) |
 
 Useful `search` flags:
 
@@ -125,6 +126,18 @@ Useful `search` flags:
 --no-store                                 # preview without writing to the database
 --max-checks 20                            # cap website checks in one run
 --json / --show-stats                      # machine-readable output, pipeline stats
+```
+
+Useful `analyze` flags:
+
+```bash
+--limit 25                                 # how many stored leads to analyse
+--lead-id <id>                             # analyse one lead
+--status website_not_found                 # only leads in this state (repeatable)
+--min-severity medium                      # only leads worth acting on
+--recheck                                  # check leads that have none (uses the network)
+--store                                    # save the findings onto the leads
+--json                                     # machine-readable output
 ```
 
 Full reference: [docs/usage.md](docs/usage.md).
@@ -174,11 +187,12 @@ lead_finder_agent/
 ├── extraction/   Normalization and de-duplication
 ├── storage/      Repository interface, SQLite backend, exporters
 ├── core/         Agent Core: pipeline, agent contracts, Agent Manager
+├── agents/       Agents beyond the Lead Finder (Website Analyzer)
 ├── config/       Settings, env handling and rule data
 ├── models/       Lead, SearchQuery and related data models
 └── cli.py        Command line interface
 tests/            Unit and integration tests (offline by default)
-docs/             Usage, configuration, architecture, data model, providers, website checker, development
+docs/             Usage, configuration, architecture, data model, providers, website checker, scoring, website analyzer, development
 ```
 
 ---
@@ -230,7 +244,7 @@ Lead Finder Agent        <-- implemented
       |
 Agent Manager            <-- implemented: register, run, isolate failures
       ├── Lead Finder      <-- done
-      ├── Website Analyzer
+      ├── Website Analyzer <-- done
       ├── Outreach Agent
       ├── Follow-up Agent
       ├── CRM Agent
@@ -241,10 +255,11 @@ Adding an agent means subclassing `BaseAgent` and registering it with the
 manager; nothing in the pipeline changes.
 
 ```python
-from lead_finder_agent.core import AgentManager, LeadFinderAgent
+from lead_finder_agent.core import AgentManager
 
 manager = AgentManager().register_default_agents()
 manager.run("lead_finder", city="Aden", limit=20)
+manager.run("website_analyzer", limit=10)
 ```
 
 `lead-finder agents` lists what is registered. Agents registered with one
@@ -252,6 +267,11 @@ manager share a single `AgentContext`, so they read and write the same
 repository rather than each building their own. `manager.run_all()` runs several
 agents with **per-agent isolation** — one failing agent is reported as a failed
 `AgentRunResult` instead of discarding the work the others did.
+
+The **Website Analyzer** is the second agent, and shows the pattern: it reads
+the leads the Lead Finder stored, turns each stored website check into findings,
+and never re-derives a status the checker already recorded. See
+[docs/website-analyzer.md](docs/website-analyzer.md).
 
 Adding a data source means subclassing `BaseSearchProvider` and registering it.
 Both walkthroughs are in
@@ -270,6 +290,7 @@ Both walkthroughs are in
 | [docs/providers.md](docs/providers.md) | Built-in providers and how to add one |
 | [docs/website-checker.md](docs/website-checker.md) | How a website is verified, and why a failed check is not "no website" |
 | [docs/scoring.md](docs/scoring.md) | How leads are scored, and why `hot` needs a verified gap |
+| [docs/website-analyzer.md](docs/website-analyzer.md) | The Website Analyzer agent: findings, severities, and what it refuses to claim |
 | [docs/development.md](docs/development.md) | Setup, testing, adding agents and providers |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Architecture overview |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |

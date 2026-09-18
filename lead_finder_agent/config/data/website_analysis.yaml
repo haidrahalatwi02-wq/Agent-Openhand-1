@@ -1,0 +1,29 @@
+# Signals the Website Analyzer reports about a lead's web presence.
+#
+# Editable without touching code. ``thresholds`` holds the only numeric
+# decisions; ``severities`` attaches a weight to each finding so whoever owns
+# outreach can re-rank them (promote a slow site, demote a missing shop) without
+# editing Python.
+version: 1
+
+thresholds:
+  # Above this, a reachable site is reported as slow. Chosen to be noticeable to
+  # a visitor on a mobile connection, not to be a strict performance budget.
+  slow_response_ms: 3000
+  # A page title shorter than this is treated as missing.
+  min_title_length: 3
+
+# How much each finding matters. Plain strings on purpose.
+severities:
+  no_website_confirmed: high
+  social_only_presence: high
+  site_unreachable: medium
+  no_https: medium
+  weak_quality: medium
+  identity_uncertain: medium
+  no_contact_details: medium
+  no_shop: low
+  slow_response: low
+  truncated_response: low
+  missing_title: low
+  check_unavailable: info

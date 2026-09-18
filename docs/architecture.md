@@ -264,6 +264,15 @@ Three pieces make multiple agents possible without a rewrite:
 `LeadFinderAgent` wires the context into `LeadFinderPipeline`. It adds the
 reporting helpers the CLI needs (`list_leads`, `top_leads`, `export`, `stats`).
 
+`WebsiteAnalyzerAgent` reads what the Lead Finder stored and reports on it. It
+holds the line the rest of the project holds: a check that could not be completed
+is reported as a gap in what we know, never as proof the business has no website,
+and a detail the stored record never captured produces no finding at all. It
+takes the same `AgentContext`, so it reads the Lead Finder's repository rather
+than opening its own, and it writes nothing back unless asked. Findings carry
+severities rather than scores, deliberately: re-scoring a stored lead from an
+analysis pass would make a stored score depend on when the analyzer last ran.
+
 `AgentManager` holds one `AgentContext` and hands it to every agent it registers,
 so a search and any later agent share a repository and settings object instead of
 each constructing their own. Registration refuses a duplicate name unless
@@ -271,8 +280,9 @@ each constructing their own. Registration refuses a duplicate name unless
 change behaviour invisibly. `run()` propagates failures, while `run_isolated()`
 and `run_all()` convert a failure into a failed `AgentRunResult` so one broken
 agent cannot discard the work of the others — the same isolation
-`MultiProviderSearch` applies to providers. The manager imports no concrete agent
-other than the Lead Finder, and the Lead Finder does not know it exists.
+`MultiProviderSearch` applies to providers. `register_default_agents()` imports
+each agent lazily inside the method, so the manager stays decoupled from the
+agent modules and no import cycle forms. No agent imports another.
 
 `lead-finder agents` lists the registered set.
 

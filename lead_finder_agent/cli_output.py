@@ -156,6 +156,39 @@ def format_lead_detail(lead: Any) -> str:
     return "\n".join(lines)
 
 
+ANALYSIS_HEADERS = ("Business", "Status", "Quality", "Attention", "Findings")
+
+
+def analysis_rows(analyses: Iterable[Any]) -> List[List[str]]:
+    """Rows for the website-analysis table."""
+    rows: List[List[str]] = []
+    for analysis in analyses:
+        kinds = ", ".join(analysis.finding_kinds()) or "-"
+        rows.append(
+            [
+                analysis.business_name,
+                str(analysis.status),
+                str(analysis.quality),
+                "yes" if analysis.needs_attention else "no",
+                kinds,
+            ]
+        )
+    return rows
+
+
+def format_analysis_legend() -> str:
+    """Footer for the analysis table.
+
+    The wording matters as much as the code here: "no website confirmed" is a
+    statement about the check, and a reader must not take it as proof about the
+    business.
+    """
+    return (
+        "Findings describe the stored website check. 'check_unavailable' means the "
+        "check was inconclusive - it does NOT mean the business has no website."
+    )
+
+
 def format_stats(stats: Dict[str, Any]) -> str:
     """Human-readable pipeline statistics."""
     lines = ["Pipeline summary", "----------------"]
@@ -185,4 +218,7 @@ __all__ = [
     "format_stats",
     "format_website_legend",
     "LEAD_HEADERS",
+    "ANALYSIS_HEADERS",
+    "analysis_rows",
+    "format_analysis_legend",
 ]
