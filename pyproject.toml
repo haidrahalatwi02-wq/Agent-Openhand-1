@@ -45,6 +45,7 @@ Issues = "https://github.com/haidrahalatwi02-wq/Agent-Openhand-1/issues"
 [tool.setuptools]
 packages = [
   "lead_finder_agent",
+  "lead_finder_agent.agents",
   "lead_finder_agent.checker",
   "lead_finder_agent.config",
   "lead_finder_agent.core",
@@ -58,7 +59,7 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
-"lead_finder_agent.config" = ["*.yaml", "*.json"]
+"lead_finder_agent.config" = ["*.yaml", "*.json", "data/*.yaml", "data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
