@@ -196,6 +196,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     analyze.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
 
+    # -- dashboard ---------------------------------------------------------
+    dashboard = subparsers.add_parser(
+        "dashboard",
+        help="Serve the Dashboard / Control Center (a local web UI over the Agent Manager)",
+    )
+    dashboard.add_argument(
+        "--host",
+        default=None,
+        help="Interface to bind (default: 127.0.0.1, loopback only)",
+    )
+    dashboard.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port to bind (default: 8765; 0 picks a free port)",
+    )
+    dashboard.add_argument(
+        "--open",
+        dest="open_browser",
+        action="store_true",
+        help="Open the dashboard in a browser once it is listening",
+    )
+    dashboard.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help=(
+            "Required to bind a non-loopback host. The dashboard can trigger "
+            "network work and holds masked credential state, so exposing it is "
+            "an explicit choice."
+        ),
+    )
+
     return parser
 
 
@@ -408,6 +440,41 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    """Serve the dashboard.
+
+    Imported lazily so the ordinary CLI commands do not pay for the HTTP server
+    (or configure it) when they are not using it.
+    """
+    from lead_finder_agent.dashboard.server import DEFAULT_HOST, DEFAULT_PORT, serve
+    from lead_finder_agent.dashboard.service import DashboardService
+
+    host = args.host or DEFAULT_HOST
+    port = DEFAULT_PORT if args.port is None else args.port
+
+    # The dashboard can trigger network work and exposes masked credential
+    # state. Binding it beyond loopback is therefore an explicit decision, not a
+    # side effect of passing --host.
+    loopback = host in ("127.0.0.1", "localhost", "::1")
+    if not loopback and not args.allow_remote:
+        print(
+            f"error: refusing to bind {host!r} without --allow-remote. "
+            "The dashboard is a local control surface by default.",
+            file=sys.stderr,
+        )
+        return 2
+
+    context = _context(args)
+    service = DashboardService(settings=context.settings)
+    serve(
+        service,
+        host=host,
+        port=port,
+        open_browser=bool(getattr(args, "open_browser", False)),
+    )
+    return 0
+
+
 _HANDLERS = {
     "search": cmd_search,
     "list": cmd_list,
@@ -417,6 +484,7 @@ _HANDLERS = {
     "providers": cmd_providers,
     "agents": cmd_agents,
     "analyze": cmd_analyze,
+    "dashboard": cmd_dashboard,
 }
 
 

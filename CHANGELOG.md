@@ -153,14 +153,59 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Project
 - Packaging via `pyproject.toml` with a `lead-finder` console script.
 - `Makefile` for install, test, run-example and clean.
-- 764 tests (730 offline unit tests plus 34 integration tests), all passing.
+- 913 tests (879 offline unit tests plus 34 integration tests), all passing.
 - Documentation: README, ARCHITECTURE, CONTRIBUTING, CHANGELOG, and `docs/`
   covering usage, configuration, architecture, data model, providers, website
-  checker, scoring, website analyzer and development.
+  checker, scoring, website analyzer, dashboard and development.
 - MIT license.
+
+#### Dashboard / Control Center
+- `lead-finder dashboard` serves a local web UI over the existing agents, on
+  `127.0.0.1:8765` by default. A non-loopback bind requires `--allow-remote`.
+- Seven sections: Overview, Agent Manager, Agent configuration, Credentials &
+  Providers, Leads, Runs & Jobs, and Settings.
+- Built on the standard library only (`http.server`, `json`, `urllib`), keeping
+  the project's single runtime dependency. No web framework was added.
+- The dashboard dispatches every action through the existing `AgentManager`; it
+  does not register a second agent system. Disabling an agent is enforced by the
+  service and returns `409` rather than silently skipping the run.
+- `dashboard/credentials.py` derives search providers from the project's own
+  provider registry, so a provider added later appears without a dashboard
+  change, and declares the reserved LLM, email and WhatsApp channels.
+- Central credential handling: `SecretStore` resolves from the environment first
+  and then from a local file written mode `0600`. The API returns only a masked
+  preview and a boolean, error text is scrubbed through `redact()`, and the
+  frontend receives no value. Credential-shaped keys are rejected on the
+  per-agent settings endpoint with `400`.
+- Per-agent configuration for instructions, settings, allowed tools and
+  enablement, with reset-to-defaults.
+- Bounded run history (`runs.json`, 100 records) recording status, pipeline
+  stage counters, per-provider results and errors. A run interrupted by a
+  restart is reported as `failed` rather than left `running` forever.
+- Editable non-secret settings overlay over `Settings`, with a whitelist schema
+  containing no credential field.
+- Responsive UI with loading, empty and error states throughout; the frontend
+  uses no browser storage and escapes everything interpolated into the DOM.
+- 165 new tests: the API, agents, leads, credentials, CLI gate, a real
+  `ThreadingHTTPServer` on an ephemeral loopback port, and secret-leak checks
+  that iterate every endpoint against every declared secret name.
+- `.gitignore` excludes `data/dashboard/` and `secrets.json`; the dashboard's
+  static assets ship in the wheel via `package-data`.
 
 ### Fixed
 
+- Saving a credential in the dashboard reported success but stored it under the
+  provider key (`google_places`) instead of the variable the provider reads
+  (`GOOGLE_PLACES_API_KEY`). The key never reached the provider, and the UI then
+  displayed that provider as unconfigured. A write now resolves either form to
+  the one canonical name, and rejects names the catalog does not declare.
+- A keyless provider was reported as having a stored credential, so the UI
+  rendered a masked value that did not exist. Keyless providers now report no
+  credential state.
+- A run started while a read was in flight on a fresh database could fail with
+  `database is locked`, because both raced to write the schema. Repository
+  creation now happens under the read lock, which leaves the run itself
+  concurrent with reads.
 - Arabic city names returned no results. `--city عدن` searched for the literal
   string while records are stored as `Aden`, so a documented input silently
   found nothing. City and country input is now resolved before searching, and

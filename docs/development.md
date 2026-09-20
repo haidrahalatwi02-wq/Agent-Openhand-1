@@ -35,6 +35,13 @@ python -m pytest --cov=lead_finder_agent --cov-report=term-missing
 | `tests/unit/` | One module per component |
 | `tests/integration/` | Whole-system flows across real components |
 
+Dashboard tests add `test_dashboard_security.py`, `test_dashboard_api.py` and
+`test_dashboard_cli.py` under `tests/unit/`, plus
+`tests/integration/test_dashboard_server.py`, which drives a real
+`ThreadingHTTPServer` on an ephemeral loopback port. The security module sets a
+sentinel secret, drives the API, and asserts the sentinel appears in no response,
+no log record and no file the dashboard wrote.
+
 The Agent Manager's behaviour lives in `tests/unit/test_agent_manager.py`, which
 also runs the real Lead Finder through the manager over a real SQLite repository
 with only the network faked.
@@ -226,6 +233,33 @@ Rules for new agents:
 8. Default to read-only. Return your results, and only write to the repository
    when the caller explicitly asks (the analyzer uses a `store=True` flag).
 
+### Showing a new agent in the dashboard
+
+A new agent appears in the Agent Manager section automatically: the dashboard
+reads the list from `AgentManager`, so registering it is enough. Two optional
+additions make its configuration page useful, both in
+[`dashboard/agent_config.py`](../lead_finder_agent/dashboard/agent_config.py):
+
+```python
+KNOWN_TOOLS["outreach"] = ["storage", "export"]
+
+AGENT_SETTINGS["outreach"] = [
+    {"name": "limit", "label": "Leads per run", "type": "integer",
+     "help": "How many qualified leads to draft for."},
+]
+```
+
+`KNOWN_TOOLS` lists the real capabilities of the implementation, and
+`AGENT_SETTINGS` describes the fields the UI should render. Both are plain data,
+so the dashboard never imports the agent to configure it. If a new agent can be
+run from the dashboard, add a branch to `run_agent` in `dashboard/api.py` and a
+`start_*` method on `DashboardService` — and route that method through
+`AgentManager.run`, as the existing two do.
+
+Do not give the agent its own credential. Add the provider to
+[`dashboard/credentials.py`](../lead_finder_agent/dashboard/credentials.py) so it
+appears in the one central credentials area, and read the value through
+`SecretStore` at the point of use.
 
 ## Adding a provider
 

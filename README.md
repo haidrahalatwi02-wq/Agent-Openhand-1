@@ -115,6 +115,7 @@ lead-finder export --format json --output exports/aden-restaurants.json
 | `providers` | List search providers and whether they are available |
 | `agents` | List the agents registered with the Agent Manager |
 | `analyze` | Analyse the websites of stored leads (Website Analyzer agent) |
+| `dashboard` | Serve the Dashboard / Control Center (a local web UI over the Agent Manager) |
 
 Useful `search` flags:
 
@@ -141,6 +142,45 @@ Useful `analyze` flags:
 ```
 
 Full reference: [docs/usage.md](docs/usage.md).
+
+---
+
+## Dashboard / Control Center
+
+A local web UI over the same agents the CLI uses. It is a **control layer**: it
+owns no business logic and dispatches everything through the existing Agent
+Manager.
+
+```bash
+lead-finder dashboard                 # http://127.0.0.1:8765
+lead-finder dashboard --port 9000     # a different port
+lead-finder dashboard --open          # open a browser once it is listening
+```
+
+Sections:
+
+| Section | What it shows |
+| --- | --- |
+| Overview | Lead totals, score bands, website statuses, priorities, sources, agent statuses, system health, recent runs and errors |
+| Agent Manager | Every agent registered with the manager, its status, enable/disable, and its configuration |
+| Agent configuration | System instructions, agent settings, allowed tools, and reset-to-defaults per agent |
+| Credentials & Providers | One central place for LLM, search, email and WhatsApp credentials, plus future channels |
+| Leads | Search, filters (city, country, type, source, priority, website status, min score), pagination and a detail view |
+| Runs & Jobs | Running, completed and failed runs, pipeline stage counters, per-provider results and errors |
+| Settings | Non-secret runtime configuration (defaults, timeouts, endpoints, database path) |
+
+**Credentials are central, not per agent.** An agent's configuration holds
+instructions, settings and allowed tools only; a credential-shaped key is
+rejected. Secrets are read from the environment first, so a deployment can inject
+them, and only then from a local `secrets.json` written with mode `0600`. The API
+returns a **masked preview and a boolean** — never the value — the frontend never
+receives one, and error text is scrubbed before it is returned or logged.
+
+**Binding beyond loopback is opt-in.** The dashboard defaults to `127.0.0.1`;
+binding another interface requires `--allow-remote`, because the control surface
+can trigger network work and exposes masked credential state.
+
+Details: [docs/dashboard.md](docs/dashboard.md).
 
 ---
 
@@ -188,6 +228,7 @@ lead_finder_agent/
 ├── storage/      Repository interface, SQLite backend, exporters
 ├── core/         Agent Core: pipeline, agent contracts, Agent Manager
 ├── agents/       Agents beyond the Lead Finder (Website Analyzer)
+├── dashboard/    Dashboard / Control Center: HTTP API, service layer, secrets, static UI
 ├── config/       Settings, env handling and rule data
 ├── models/       Lead, SearchQuery and related data models
 └── cli.py        Command line interface
@@ -291,6 +332,7 @@ Both walkthroughs are in
 | [docs/website-checker.md](docs/website-checker.md) | How a website is verified, and why a failed check is not "no website" |
 | [docs/scoring.md](docs/scoring.md) | How leads are scored, and why `hot` needs a verified gap |
 | [docs/website-analyzer.md](docs/website-analyzer.md) | The Website Analyzer agent: findings, severities, and what it refuses to claim |
+| [docs/dashboard.md](docs/dashboard.md) | The Dashboard / Control Center: sections, API, and credential handling |
 | [docs/development.md](docs/development.md) | Setup, testing, adding agents and providers |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Architecture overview |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |

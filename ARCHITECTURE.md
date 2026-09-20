@@ -145,6 +145,38 @@ See [development.md](development.md) for the full walkthrough.
 - No mocks of our own code. Only the network boundary is faked, because that is
   the only thing that genuinely cannot be relied upon in CI.
 
+## The dashboard
+
+The Dashboard / Control Center is a presentation and control layer over the same
+agents the CLI uses. `lead_finder_agent/dashboard/` holds:
+
+```
+static/          single-page UI; talks to /api over fetch
+server.py        stdlib threaded HTTP server for /api and the static files
+api.py           small JSON router; validates input, scrubs error text
+service.py       control layer; the only thing that reaches the Agent Manager
+secrets.py       central secret storage and masking
+credentials.py   one catalog of providers and the credential each needs
+agent_config.py  per-agent instructions/settings/tools/enablement
+jobs.py          bounded run history and a background job runner
+settings_store.py  editable non-secret settings overlay
+```
+
+Routing rules, which keep the layering intact:
+
+1. **The dashboard never becomes a second registry.** It reads the agent list
+   from `AgentManager` and joins it with stored configuration.
+2. **Every action goes through the manager.** `service.py` builds a manager,
+   calls `manager.run(name, **kwargs)`, and records the outcome.
+3. **Credentials are central.** An agent's configuration cannot hold one; a
+   credential-shaped key is rejected. Secrets resolve from the environment first,
+   then from a local `0600` file, and only ever surface as a masked preview.
+4. **Each run owns its `AgentContext`**, and therefore its sqlite connection.
+   The server is threaded, so sharing one context across jobs would share one
+   connection across threads.
+
+See [docs/dashboard.md](dashboard.md).
+
 ## Known trade-offs
 
 - **SQLite** is right for single-user CLI use. Concurrent writers will need a

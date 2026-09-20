@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Lead Finder — Control Center</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <button class="icon-btn nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">
+      <span class="bars" aria-hidden="true"></span>
+    </button>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">Lead&nbsp;Finder <em>Control Center</em></span>
+    </div>
+    <div class="topbar-side">
+      <span class="health-pill" id="healthPill" title="System health">
+        <span class="dot" aria-hidden="true"></span><span id="healthText">checking…</span>
+      </span>
+      <span class="version" id="versionText"></span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar" aria-label="Sections">
+      <ul class="nav-list" role="tablist">
+        <li><button class="nav-item" data-view="overview" role="tab">Overview</button></li>
+        <li><button class="nav-item" data-view="agents" role="tab">Agent Manager</button></li>
+        <li><button class="nav-item" data-view="credentials" role="tab">Credentials &amp; Providers</button></li>
+        <li><button class="nav-item" data-view="leads" role="tab">Leads</button></li>
+        <li><button class="nav-item" data-view="runs" role="tab">Runs &amp; Jobs</button></li>
+        <li><button class="nav-item" data-view="settings" role="tab">Settings</button></li>
+      </ul>
+      <div class="sidebar-foot">
+        <p class="muted small">
+          Agent Manager is the orchestrator. This dashboard only controls it.
+        </p>
+      </div>
+    </nav>
+
+    <main class="content" id="main" tabindex="-1">
+      <!-- Overview -->
+      <section class="view" id="view-overview" role="tabpanel" hidden>
+        <header class="view-head">
+          <h1>Overview</h1>
+          <button class="btn" id="refreshOverview">Refresh</button>
+        </header>
+        <div id="overviewBody" class="stack"></div>
+      </section>
+
+      <!-- Agents -->
+      <section class="view" id="view-agents" role="tabpanel" hidden>
+        <header class="view-head">
+          <h1>Agent Manager</h1>
+          <p class="muted">Registered agents come from the project's Agent Manager. Nothing is duplicated here.</p>
+        </header>
+        <div id="agentsBody" class="stack"></div>
+      </section>
+
+      <!-- Credentials -->
+      <section class="view" id="view-credentials" role="tabpanel" hidden>
+        <header class="view-head">
+          <h1>Credentials &amp; Providers</h1>
+          <p class="muted">
+            One central place for every provider credential, managed on behalf of the Agent Manager.
+            Values are never displayed, logged, or returned by the API — only a masked preview.
+          </p>
+        </header>
+        <div class="notice" role="note">
+          <strong>Environment wins.</strong> If a variable is set in the environment it overrides a value
+          saved here, and this page reports the source as <em>environment</em>.
+        </div>
+        <div id="credentialsBody" class="stack"></div>
+      </section>
+
+      <!-- Leads -->
+      <section class="view" id="view-leads" role="tabpanel" hidden>
+        <header class="view-head">
+          <h1>Leads</h1>
+          <button class="btn" id="refreshLeads">Refresh</button>
+        </header>
+        <form class="filters" id="leadFilters" autocomplete="off">
+          <label>Search name<input type="search" name="q" placeholder="Business name" /></label>
+          <label>City<select name="city" id="fCity"><option value="">Any</option></select></label>
+          <label>Country<select name="country" id="fCountry"><option value="">Any</option></select></label>
+          <label>Type<select name="business_type" id="fType"><option value="">Any</option></select></label>
+          <label>Source<select name="source" id="fSource"><option value="">Any</option></select></label>
+          <label>Priority<select name="priority" id="fPriority"><option value="">Any</option></select></label>
+          <label>Website status<select name="website_status" id="fStatus"><option value="">Any</option></select></label>
+          <label>Min score<input type="number" name="min_score" min="0" max="100" /></label>
+          <label>Order by
+            <select name="order_by">
+              <option value="lead_score">Score</option>
+              <option value="discovered_at">Discovered</option>
+              <option value="business_name">Name</option>
+              <option value="city">City</option>
+              <option value="priority">Priority</option>
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button class="btn primary" type="submit">Apply</button>
+            <button class="btn" type="reset">Clear</button>
+          </div>
+        </form>
+        <div id="leadsBody" class="stack"></div>
+      </section>
+
+      <!-- Runs -->
+      <section class="view" id="view-runs" role="tabpanel" hidden>
+        <header class="view-head">
+          <h1>Runs &amp; Jobs</h1>
+          <button class="btn" id="refreshRuns">Refresh</button>
+        </header>
+        <div class="run-actions">
+          <button class="btn primary" id="runSearchBtn">Run search (Lead Finder)</button>
+          <button class="btn" id="runAnalyzeBtn">Run Website Analyzer</button>
+        </div>
+        <div id="runsBody" class="stack"></div>
+      </section>
+
+      <!-- Settings -->
+      <section class="view" id="view-settings" role="tabpanel" hidden>
+        <header class="view-head">
+          <h1>Settings</h1>
+          <p class="muted">Non-secret runtime configuration. Credentials live under Credentials &amp; Providers.</p>
+        </header>
+        <div id="settingsBody" class="stack"></div>
+      </section>
+
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-head">
+        <h2 id="modalTitle">Details</h2>
+        <button class="icon-btn close" id="modalClose" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

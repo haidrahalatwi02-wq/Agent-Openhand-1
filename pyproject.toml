@@ -49,6 +49,7 @@ packages = [
   "lead_finder_agent.checker",
   "lead_finder_agent.config",
   "lead_finder_agent.core",
+  "lead_finder_agent.dashboard",
   "lead_finder_agent.extraction",
   "lead_finder_agent.models",
   "lead_finder_agent.scoring",
@@ -60,6 +61,9 @@ packages = [
 
 [tool.setuptools.package-data]
 "lead_finder_agent.config" = ["*.yaml", "*.json", "data/*.yaml", "data/*.json"]
+# The dashboard ships its UI as static assets. They are data, not Python, so
+# without this the wheel would install a dashboard with no pages to serve.
+"lead_finder_agent.dashboard" = ["static/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

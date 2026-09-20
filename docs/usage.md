@@ -311,6 +311,31 @@ The command writes nothing by default; add `--store` to keep the findings. The
 findings never change a lead's score. Full detail, including every finding kind
 and its severity: [website-analyzer.md](website-analyzer.md).
 
+## `dashboard`
+
+```bash
+lead-finder dashboard                 # http://127.0.0.1:8765
+lead-finder dashboard --port 9000
+lead-finder dashboard --open          # open a browser once it is listening
+lead-finder dashboard --host 0.0.0.0 --allow-remote   # opt in to a network bind
+```
+
+Serves the Dashboard / Control Center: a local web UI for Overview, Agent
+Manager, per-agent configuration, Credentials & Providers, Leads, Runs & Jobs and
+Settings. It is a control layer over the same agents the other commands use, and
+it dispatches every action through the Agent Manager.
+
+| Flag | Purpose |
+| --- | --- |
+| `--host` | Interface to bind (default `127.0.0.1`) |
+| `--port` | Port to bind (default `8765`; `0` picks a free port) |
+| `--open` | Open a browser once the server is listening |
+| `--allow-remote` | Required to bind a non-loopback host |
+
+There is no authentication. Binding beyond loopback is therefore refused unless
+`--allow-remote` is passed, so the dashboard is not exposed by accident. See
+[dashboard.md](dashboard.md) for the credential handling and the API.
+
 ## A complete workflow
 
 ```bash
@@ -342,7 +367,7 @@ lead-finder search --city Aden --country Yemen --type restaurants --limit 50
 | --- | --- |
 | `0` | Success |
 | `1` | Runtime error (for example `show` on an unknown id) |
-| `2` | Invalid arguments |
+| `2` | Invalid arguments, or a refused `dashboard --host` bind |
 | `130` | Interrupted with Ctrl-C |
 
 ## Troubleshooting

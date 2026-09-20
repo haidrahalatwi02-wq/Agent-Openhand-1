@@ -34,6 +34,14 @@ exports/*
 !exports/.gitkeep
 *.log
 
+# Dashboard local state. `secrets.json` holds credentials entered through the
+# UI, so it must never be committed. The other files are local run/config state
+# that differs per machine and carries no value in version control.
+data/dashboard/
+secrets.json
+agent_config.json
+runs.json
+
 # Editors / OS
 .idea/
 .vscode/
