@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "categories": {
+    "restaurants": {
+      "aliases": ["restaurant", "restaurants", "eatery", "dining", "مطعم", "مطاعم"],
+      "tags": ["amenity=restaurant", "amenity=fast_food", "amenity=cafe"]
+    },
+    "clothing": {
+      "aliases": ["clothing", "clothes", "fashion", "apparel", "boutique", "ملابس", "محلات ملابس", "أزياء"],
+      "tags": ["shop=clothes", "shop=shoes", "shop=boutique", "shop=fashion_accessories"]
+    },
+    "car_repair": {
+      "aliases": ["car repair", "garage", "auto repair", "workshop", "mechanics", "ورش سيارات", "ورشة", "صيانة سيارات"],
+      "tags": ["shop=car_repair", "shop=car_parts", "shop=tyres"]
+    },
+    "electronics": {
+      "aliases": ["electronics", "electronic stores", "mobile shop", "phone shop", "إلكترونيات", "متاجر إلكترونيات", "جوالات"],
+      "tags": ["shop=electronics", "shop=mobile_phone", "shop=computer"]
+    },
+    "grocery": {
+      "aliases": ["grocery", "supermarket", "mini market", "convenience", "بقالة", "سوبرماركت", "تموينات"],
+      "tags": ["shop=supermarket", "shop=convenience", "shop=grocery", "shop=greengrocer"]
+    },
+    "bakery": {
+      "aliases": ["bakery", "bread", "pastry", "مخبز", "مخابز", "حلويات"],
+      "tags": ["shop=bakery", "shop=pastry", "shop=confectionery"]
+    },
+    "pharmacy": {
+      "aliases": ["pharmacy", "drugstore", "chemist", "صيدلية", "صيدليات"],
+      "tags": ["amenity=pharmacy", "healthcare=pharmacy"]
+    },
+    "furniture": {
+      "aliases": ["furniture", "home decor", "أثاث", "مفروشات"],
+      "tags": ["shop=furniture", "shop=interior_decoration"]
+    },
+    "beauty": {
+      "aliases": ["beauty", "salon", "barber", "hairdresser", "صالون", "حلاق", "تجميل"],
+      "tags": ["shop=beauty", "shop=hairdresser", "shop=cosmetics"]
+    },
+    "hotel": {
+      "aliases": ["hotel", "guesthouse", "motel", "فندق", "فنادق", "نزل"],
+      "tags": ["tourism=hotel", "tourism=guest_house", "tourism=motel"]
+    },
+    "travel": {
+      "aliases": ["travel agency", "tour operator", "tourism office", "وكالات سفر", "سياحة"],
+      "tags": ["shop=travel_agency", "office=travel_agent"]
+    },
+    "construction": {
+      "aliases": ["construction", "contractor", "building materials", "مقاولات", "مواد بناء"],
+      "tags": ["shop=doityourself", "shop=hardware", "shop=building_materials", "office=construction_company"]
+    },
+    "gym": {
+      "aliases": ["gym", "fitness", "sports club", "صالة رياضية", "نادي رياضي"],
+      "tags": ["leisure=fitness_centre", "leisure=sports_centre"]
+    },
+    "educational": {
+      "aliases": ["school", "institute", "training center", "academy", "معهد", "مدرسة", "مركز تدريب"],
+      "tags": ["amenity=school", "amenity=college", "amenity=language_school", "office=educational_institution"]
+    },
+    "jewelry": {
+      "aliases": ["jewelry", "gold", "watches", "مجوهرات", "ذهب", "ساعات"],
+      "tags": ["shop=jewelry", "shop=watches"]
+    },
+    "general_shop": {
+      "aliases": ["shop", "store", "retail", "متجر", "محل", "متاجر"],
+      "tags": ["shop=*"]
+    }
+  }
+}

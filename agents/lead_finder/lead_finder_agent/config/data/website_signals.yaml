@@ -1,0 +1,102 @@
+# Signals used by the website checker.
+#
+# The checker never guesses: when a request fails or is blocked it reports
+# `website_unknown`, not `website_not_found`.
+
+version: 1
+
+http:
+  timeout_seconds: 10
+  # Try HTTPS first, then HTTP.
+  schemes: ["https", "http"]
+  # Stop after this many redirects; a longer chain is reported as unreachable
+  # rather than followed, so a redirect loop can never hang a run.
+  max_redirects: 5
+  # Read at most this many bytes of any response body.
+  max_response_bytes: 1000000
+  # Statuses that mean "a site exists here".
+  ok_status: [200, 201, 202, 203, 204, 301, 302, 303, 307, 308]
+  # Statuses that strongly suggest a site exists but is broken.
+  weak_status: [401, 403, 405, 429, 500, 502, 503, 504]
+  # Statuses that mean "no site at this address".
+  missing_status: [404, 410]
+
+# Domains that count as "social only" rather than an owned website.
+social_domains:
+  - facebook.com
+  - fb.com
+  - instagram.com
+  - twitter.com
+  - x.com
+  - tiktok.com
+  - linkedin.com
+  - pinterest.com
+  - snapchat.com
+  - youtube.com
+  - whatsapp.com
+  - wa.me
+  - telegram.me
+  - t.me
+
+# Extra hosts commonly used as free storefronts. These count as a weak website
+# (better than nothing, but still a good prospect for a real store).
+weak_hosts:
+  - wixsite.com
+  - weebly.com
+  - blogspot.com
+  - wordpress.com
+  - business.site
+  - google.com
+  - linktr.ee
+
+# Markers that indicate an e-commerce / booking capability.
+shop_markers:
+  - "add to cart"
+  - "add to basket"
+  - "addtocart"
+  - "shopping-cart"
+  - "shopping_cart"
+  - "checkout"
+  - "woocommerce"
+  - "shopify"
+  - "salla"
+  - "zid.store"
+  - "cart"
+  - "السلة"
+  - "أضف إلى السلة"
+  - "إضافة إلى السلة"
+  - "الدفع"
+
+# Markers that indicate a contact page or contact details.
+contact_markers:
+  - "contact us"
+  - "contact-us"
+  - "/contact"
+  - "اتصل بنا"
+  - "تواصل معنا"
+  - "mailto:"
+  - "tel:"
+
+# Paths probed for a contact page when the homepage has no link.
+contact_paths: ["/contact", "/contact-us", "/contactus", "/اتصل-بنا"]
+
+# A page with fewer than this many characters of visible text is "thin".
+min_content_length: 400
+
+# A page whose markup contains these is very likely a placeholder/parked page.
+placeholder_markers:
+  - "domain for sale"
+  - "this domain is for sale"
+  - "buy this domain"
+  - "parked domain"
+  - "under construction"
+  - "coming soon"
+  - "site not found"
+  - "default web site page"
+  - "welcome to nginx"
+  - "apache2 debian default page"
+  - "it works!"
+
+# A page is "outdated" when it references a copyright year earlier than
+# (current_year - outdated_after_years).
+outdated_after_years: 4
