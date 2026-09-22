@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "default",
+  "thresholds": {
+    "good_rating": 4.0,
+    "reviews_present": 3,
+    "many_reviews": 25,
+    "data_quality_min_fields": 4,
+    "hot_score": 70,
+    "warm_score": 45,
+    "cold_score": 20,
+    "min_confidence_for_priority": "low"
+  },
+  "confidence": {
+    "high_min_signals": 7,
+    "medium_min_signals": 4
+  },
+  "rules": [
+    { "id": "no_website", "points": 35, "description": "No website found - prime candidate for a new website", "when": { "website_missing": true } },
+    { "id": "no_website_information", "points": 20, "description": "No website information available from public sources", "when": { "website_null": true } },
+    { "id": "social_only_presence", "points": 18, "description": "Only a social media presence exists, no owned website", "when": { "website_social_only": true } },
+    { "id": "website_unknown_conservative", "points": 5, "description": "Website status could not be determined", "when": { "website_unknown": true } },
+    { "id": "weak_website", "points": 22, "description": "Has a website but it is thin, broken or outdated", "when": { "website_is_weak": true } },
+    { "id": "business_active", "points": 15, "description": "Business appears to be active", "when": { "business_active": true } },
+    { "id": "has_phone", "points": 12, "description": "Public phone number available for outreach", "when": { "has_phone": true } },
+    { "id": "has_email", "points": 6, "description": "Public email address available", "when": { "has_email": true } },
+    { "id": "has_address", "points": 6, "description": "Street address available", "when": { "has_address": true } },
+    { "id": "has_social", "points": 8, "description": "Active social media presence", "when": { "has_social": true } },
+    { "id": "has_description", "points": 5, "description": "Business description available", "when": { "has_description": true } },
+    { "id": "has_categories", "points": 4, "description": "Business categories are known", "when": { "has_categories": true } },
+    { "id": "has_good_rating", "points": 8, "description": "Good public rating", "when": { "has_good_rating": true } },
+    { "id": "has_many_reviews", "points": 7, "description": "High number of public reviews", "when": { "has_many_reviews": true } },
+    { "id": "data_quality_high", "points": 5, "description": "Well documented public record", "when": { "data_quality_high": true } },
+    { "id": "good_website", "points": -45, "description": "Business already has a good working website", "when": { "website_is_good": true } },
+    { "id": "business_closed", "points": -50, "description": "Business appears to be permanently closed", "when": { "business_closed": true } },
+    { "id": "data_quality_low", "points": -10, "description": "Very little public data available", "when": { "data_quality_low": true } }
+  ],
+  "score_min": 0,
+  "score_max": 100
+}

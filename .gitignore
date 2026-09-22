@@ -1,0 +1,40 @@
+# Secrets and local environment
+.env
+.env.local
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Local data and exports
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.db-journal
+data/*.csv
+data/*.json
+!data/.gitkeep
+exports/*
+!exports/.gitkeep
+*.log
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
